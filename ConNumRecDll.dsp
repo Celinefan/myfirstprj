@@ -56,7 +56,7 @@ LINK32=link.exe
 # ADD LINK32 /nologo /subsystem:windows /dll /machine:I386
 # Begin Special Build Tool
 SOURCE="$(InputPath)"
-PostBuild_Cmds=Copy Release\ConNumRecDll.dll ..\DemoExe\ConNumRecDll.dll	Copy Release\ConNumRecDll.lib ..\DemoExe\ConNumRecDll.lib	Copy NumRec.h ..\DemoExe\NumRec.h	Copy NumRec_C.h ..\DemoExe\NumRec_C.h
+PostBuild_Cmds=Copy Release\ConNumRecDll.dll ..\DemoExe\ConNumRecDll.dll	Copy Release\ConNumRecDll.lib ..\DemoExe\ConNumRecDll.lib	Copy NumRec.h ..\DemoExe\NumRec.h	Copy NumRec_C.h ..\DemoExe\NumRec_C.h	Copy Release\ConNumRecDll.dll .\ConNumRecDll.dll
 # End Special Build Tool
 
 !ELSEIF  "$(CFG)" == "ConNumRecDll - Win32 Debug"
@@ -86,7 +86,7 @@ LINK32=link.exe
 # ADD LINK32 /nologo /subsystem:windows /dll /debug /machine:I386 /out:"Debug/ConNumRecDllD.dll" /pdbtype:sept
 # Begin Special Build Tool
 SOURCE="$(InputPath)"
-PostBuild_Cmds=Copy Debug\ConNumRecDllD.dll ..\DemoExe\ConNumRecDllD.dll	Copy Debug\ConNumRecDllD.lib ..\DemoExe\ConNumRecDllD.lib	Copy NumRec.h ..\DemoExe\NumRec.h	Copy NumRec_C.h ..\DemoExe\NumRec_C.h
+PostBuild_Cmds=Copy Debug\ConNumRecDllD.dll ..\DemoExe\ConNumRecDllD.dll	Copy Debug\ConNumRecDllD.lib ..\DemoExe\ConNumRecDllD.lib	Copy NumRec.h ..\DemoExe\NumRec.h	Copy NumRec_C.h ..\DemoExe\NumRec_C.h	Copy Debug\ConNumRecDllD.dll .\ConNumRecDllD.dll
 # End Special Build Tool
 
 !ENDIF 
