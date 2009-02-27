@@ -1,0 +1,6 @@
+; ConNumRecDll.def : Declares the module parameters for the DLL.
+
+DESCRIPTION  'ConNumRecDll Windows Dynamic Link Library'
+
+EXPORTS
+    ; Explicit exports can go here
