@@ -1,0 +1,1 @@
+For old parallel port's dongle.
