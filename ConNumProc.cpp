@@ -3016,10 +3016,16 @@ BOOL CConNumProc::PatternAnalyze_ByHMM( CArray<int,int>& intArray, CArray<int,in
 		m_NumCharArray_ByConf.Copy( NumCharArray_ByConf );
 		m_ABCCharArray_ByConf.Copy( ABCCharArray_ByConf );
 		m_fCutConf = fCutConf;
+
+#ifdef SAVE_HMM_MID_RES
+		CString strHMMInfoFile_MaxProbBak = m_strHMMDebugDir + _T( "HmmInfo_MaxProb.txt" );
+		CopyFile( strHMMInfoFile, strHMMInfoFile_MaxProbBak, FALSE );
+		CString strHmmInputFile = m_strHMMDebugDir + _T("HMM_INPUT.txt");
+		CString strHmmInputFile_MaxProbBak = m_strHMMDebugDir + _T("HMM_INPUT_MaxProb.txt");
+		CopyFile( strHmmInputFile, strHmmInputFile_MaxProbBak, FALSE );
+#endif
 	}
-	
-	
-	
+		
 	for( i = 0; i < nNodes * nPosModes; i++ )
 	{
 		freeObNode( obNodes[i] );
