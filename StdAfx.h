@@ -32,16 +32,17 @@
 #define TEST_PROJ
 //#define TEST_CUT_CONF_V3
 
-// #define TEST_HMM//ADDED 20081119 -- FOR HMM CHAR CUT CONF ANA
-// #ifdef TEST_HMM
-// #include "BfPropa.h"
-// #endif
-// #define SAVE_HMM_MID_RES//ADDED 20081119 -- FOR TEST_HMM MID RES
+#define TEST_HMM//ADDED 20081119 -- FOR HMM CHAR CUT CONF ANA
+#ifdef TEST_HMM
+#include "BfPropa.h"
+#endif
+#define SAVE_HMM_MID_RES//ADDED 20081119 -- FOR TEST_HMM MID RES
+#ifdef SAVE_HMM_MID_RES
+#define SAVE_DEBUGINFO_FILES
+#endif
 
-
-
-// #define SAVE_DEBUGINFO_FILES
-// #define SAVE_PLATEPOS_INFO
+//#define SAVE_DEBUGINFO_FILES
+//#define SAVE_PLATEPOS_INFO
 //#define SAVE_CUTCHAR_INFO
 //#define SAVE_CHARS
 //#define SAVE_CHECKCHAR_INFO
