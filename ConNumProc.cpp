@@ -2043,6 +2043,20 @@ BOOL CConNumProc::HorRgnCutStrategy( IMAGE imgNumSeq_Gray, IMAGE imgNumSeq, CRec
 #endif
 
 	bSuc = HorRgnRcsAnaStrategy( charArray, allRcsArray, resArray, nType, nCharW, nCharH, nRcDis, rcNumRgn, bBlack );
+#ifdef SAVE_CUTCHAR_INFO
+	if( !bBlack )
+		m_strCurDebugFile.Format("%s%s_%d_BIN_%d_withHorRgnAna%s",m_strCurDebugDir,fname,m_nCurProcID*2,nCurID++,CString(_T(".jpg")));
+	else
+		m_strCurDebugFile.Format("%s%s_%d_BIN_%d_withHorRgnAna%s",m_strCurDebugDir,fname,m_nCurProcID*2+1,nCurID++,CString(_T(".jpg")));
+ 	memcpy( imgNumSeq_Show[0], imgNumSeq[0], nNumSeqHeight * nNumSeqWidth );
+	ObjRectArray localCharArray;
+	localCharArray.Copy( charArray );
+	if( TransferRcArrayFromW2L( localCharArray, rcNumRgn ) )
+	{
+		DrawObjRectArray( imgNumSeq_Show, localCharArray );
+		ImageSave( imgNumSeq_Show, m_strCurDebugFile );
+	}
+#endif
 
 #ifdef TEST_CUT_CONF_V3
 	if( !bSuc )
@@ -9425,7 +9439,7 @@ BOOL CConNumProc::GetPreNumRects( IMAGE imgGray, ObjRectArray& rcArray, BOOL bBl
  	m_strCurDebugFile.Format("%s%s_%d_%d%s",m_strCurDebugDir,fname,m_nCurProcID,nCurDebugID,CString(_T("gray.jpg")));
  	ImageSave( imgGray, m_strCurDebugFile );
 #endif
-	VerEnhance( imgGray, imgVer, 10, 0.05f );	
+	VerEnhance( imgGray, imgVer, 10, 0.05f );
 
 #ifdef SAVE_PLATEPOS_INFO//Save VerEnhanced Image
 	m_strCurDebugDir = m_strSubDebugDir + "VerEnhance";

@@ -81,4 +81,7 @@ void SavePRes2Pic( int *pnArray, int nLen, CString strFilePath, int nNormHi, BOO
 
 BOOL CheckRcInImg( CRect rcRgn, int nPicWidth, int nPicHeight );
 
+void TransferRectFromW2L( CRect& rc, CRect rcLocal );
+BOOL TransferRcArrayFromW2L( ObjRectArray& rcArray, CRect rcLocal);//Transfer RcArray from Local to Whole
+
 #endif // !defined(SCU_III_IMGFUC_INCLUDED_)
