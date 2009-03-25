@@ -41,6 +41,9 @@
 #define SAVE_DEBUGINFO_FILES
 #endif
 
+#define TEST_HMMCONF//ADDED 20090325 -- For HMM Segmentation Confidence Calculation
+
+
 //#define SAVE_DEBUGINFO_FILES
 //#define SAVE_PLATEPOS_INFO
 //#define SAVE_CUTCHAR_INFO

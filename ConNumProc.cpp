@@ -854,6 +854,12 @@ REC:
 #endif
 	}
 #endif
+	
+#ifdef TEST_HMMCONF
+	if( nNums == 7 && nABCs == 4 )
+	{
+	}
+#endif
 
 	if( nNums == 7 && nABCs ==4 )
 	{
@@ -2892,7 +2898,7 @@ BOOL CConNumProc::PatternAnalyze_ByHMM( CArray<int,int>& intArray, CArray<int,in
 	HiNode* hiNodes = NULL;
 	int* insertModes = NULL;
 	int nSeqs = 0;
-	ExNodesFea( obNodes, hiNodes, nNodes, nPosModes, insertModes, nSeqs, objInfo, intAnaArray, disAnaArray );
+	ExNodesFea( obNodes, hiNodes, nNodes, nPosModes, insertModes, nSeqs, objInfo, intAnaArray, disAnaArray );//Write in nodes info
 	CBfPropa bf;
 #ifdef SAVE_HMM_MID_RES
 	ofstream fHmmInfo;
@@ -3007,7 +3013,7 @@ BOOL CConNumProc::PatternAnalyze_ByHMM( CArray<int,int>& intArray, CArray<int,in
 		
 	}
 	
-	float fCutConf = 0.8f - ( nMisChars / (float)11 ) * 0.8;
+	float fCutConf = 0.8f - ( nMisChars / (float)11 ) * 0.8;//Output the confidence anyway??????No ristrict conditions?????
 	
 	if( fCutConf > m_fCutConf )
 	{
