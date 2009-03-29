@@ -190,6 +190,12 @@ private:
 #endif
 
 
+#ifdef TEST_HMMCONF
+	BOOL GetHMMConf( ObjRectArray& allobjs, float &fHMMConf );
+	BOOL GetLines( ObjRectArray& allobjs, int& nlines );
+	BOOL CheckInsertRect( ObjRectArray& allobjs );
+#endif
+
 };
 
 #endif // !defined(AFX_CONNUMPROC_H__9C6F791E_289C_4621_A3C9_39FAC07BD61E__INCLUDED_)

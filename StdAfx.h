@@ -23,6 +23,8 @@
 #include <fstream.h>
 #include <io.h>
 
+#include <DataArray.h>
+
 
 //#define TIME_LIMITED
 #define TEST_4331_FORMAT
@@ -36,12 +38,18 @@
 #ifdef TEST_HMM
 #include "BfPropa.h"
 #endif
-#define SAVE_HMM_MID_RES//ADDED 20081119 -- FOR TEST_HMM MID RES
-#ifdef SAVE_HMM_MID_RES
+// #define SAVE_HMM_MID_RES//ADDED 20081119 -- FOR TEST_HMM MID RES
+// #ifdef SAVE_HMM_MID_RES
+// #define SAVE_DEBUGINFO_FILES
+// #endif
+
+#define TEST_HMMCONF//ADDED 20090325 -- For HMM Segmentation Confidence Calculation
+#define DEBUG_HMMCONF//ADDED 20090326 -- For HMM Segmentation Confidence Debugging
+#ifdef DEBUG_HMMCONF
 #define SAVE_DEBUGINFO_FILES
 #endif
 
-#define TEST_HMMCONF//ADDED 20090325 -- For HMM Segmentation Confidence Calculation
+#define ONLY_TEST_HMMCONF
 
 
 //#define SAVE_DEBUGINFO_FILES

@@ -27,7 +27,6 @@ CConNumProc::CConNumProc() : m_ecoConChar(CString("data"))
 #endif
 
 #ifdef SAVE_HMM_MID_RES
-	InitParasForDebug();
 	m_strHMMDebugDir = m_strDebugDir + _T("HMM_Debug_Info\\");
 	CreateDirectory( m_strHMMDebugDir, NULL );
 #endif
@@ -856,9 +855,63 @@ REC:
 #endif
 	
 #ifdef TEST_HMMCONF
+
+	#ifdef DEBUG_HMMCONF
+	CString strPreDebugDir = m_strCurDebugDir;
+	m_strCurDebugDir = m_strDebugDir + _T("HMM_Conf_Info\\");
+	CreateDirectory( m_strCurDebugDir, NULL );
+	#endif
+
 	if( nNums == 7 && nABCs == 4 )
 	{
+		ObjRectArray allobjs;
+		allobjs.Append( m_ABCCharArray );
+		allobjs.Append( m_NumCharArray );
+
+		float fHMMConf;
+		GetHMMConf( allobjs, fHMMConf );
+
+	#ifdef DEBUG_HMMCONF
+		m_pImageDis->PutImage( rcPic, imgR[0], imgG[0], imgB[0] );
+		DrawObjRectArray( m_pImageDis, m_ABCCharArray, 255, 0, 0 );
+		DrawObjRectArray( m_pImageDis, m_NumCharArray, 255, 0, 0 );
+		m_strCurDebugFile.Format( "%s%s.jpg", m_strCurDebugDir, fname );
+		m_pImageDis->Save( m_strCurDebugFile );
+
+		CString strSubDir;
+		BOOL bMoveFile = FALSE;
+		if( fHMMConf >= 0.8f && fHMMConf <= 1.0f )
+		{
+			strSubDir.Format( "%s\\80\\", m_strCurDebugDir );
+			CreateDirectory( strSubDir, NULL );
+			bMoveFile = TRUE;
+		}else if( fHMMConf >= 0.6f && fHMMConf <= 0.8f )
+		{
+			strSubDir.Format( "%s\\60\\", m_strCurDebugDir );
+			CreateDirectory( strSubDir, NULL );
+			bMoveFile = TRUE;
+		}
+		if( bMoveFile )
+		{
+			CString strSrcFile;
+			strSrcFile = m_strCurDebugFile;
+			CString strDesFile;
+			strDesFile.Format("%s%s.jpg", strSubDir, fname );
+			MoveFile( m_strCurDebugFile, strDesFile );
+			strSrcFile = m_strCurDebugDir + fname + _T("_HMM_Conf.txt");
+			strDesFile = strSubDir + fname + _T("_HMM_Conf.txt");
+			MoveFile( strSrcFile, strDesFile );
+		}
+
+
+	#endif
+	
 	}
+
+	#ifdef DEBUG_HMMCONF
+	m_strCurDebugDir = strPreDebugDir;
+	#endif
+
 #endif
 
 	if( nNums == 7 && nABCs ==4 )
@@ -2823,6 +2876,10 @@ BOOL CConNumProc::PatternAnalyze( CArray<int,int>& intArray, int& nType, ObjRect
 #ifdef TEST_HMM
 BOOL CConNumProc::PatternAnalyze_ByHMM( CArray<int,int>& intArray, CArray<int,int>& disArray, int& nType, ObjRectArray& charArray )//Belief Propagation Analyze
 {
+#ifdef ONLY_TEST_HMMCONF
+	return FALSE;
+#endif
+
 	int i = 0;
 	int j = 0;
 	int k = 0;
@@ -2899,6 +2956,8 @@ BOOL CConNumProc::PatternAnalyze_ByHMM( CArray<int,int>& intArray, CArray<int,in
 	int* insertModes = NULL;
 	int nSeqs = 0;
 	ExNodesFea( obNodes, hiNodes, nNodes, nPosModes, insertModes, nSeqs, objInfo, intAnaArray, disAnaArray );//Write in nodes info
+	//The Input Parameters are only the last three ones: objInfo, intAnaArray, disAnaArray
+	//The left are output parameters
 	CBfPropa bf;
 #ifdef SAVE_HMM_MID_RES
 	ofstream fHmmInfo;
@@ -9653,3 +9712,251 @@ BOOL CConNumProc::TryGetPreVerRgns( IMAGE imgGray, ObjRectArray& rcArray, int nT
 
 	return rcArray.GetSize() > 0;
 }
+
+#ifdef TEST_HMMCONF
+BOOL CConNumProc::GetHMMConf( ObjRectArray& allobjs, float &fHMMConf )
+{   
+	fHMMConf = 0.0f;
+	float fOmitValue = 8.8888f;//For the situations that are not processed in this function
+
+	int nCnt = allobjs.GetSize();
+	if( nCnt != 11 )
+	{
+		return FALSE;
+	}
+
+	if( CheckInsertRect(allobjs) )
+	{
+		fHMMConf = fOmitValue;
+		return FALSE;
+	}
+
+	int nlines = 0;
+	GetLines( allobjs, nlines );
+	if( nlines != 1 && nlines != 2 )
+	{
+		fHMMConf = fOmitValue;
+		return FALSE;
+	}
+
+
+	int i = 0;
+	int j = 0;
+
+	int nCharW = 0;
+	int nCharH = 0;
+	int nRcDis = 0;
+
+	GetAverRcWH( allobjs, nCharW, nCharH );
+	GetRcDis( allobjs, nRcDis );
+
+////////////////////////////Observation Nodes//////////////////////////////
+	int nFealen = 4;
+	ObNode *observations = new ObNode[nCnt];
+	for( i = 0; i < nCnt; i++ )
+	{
+		initObNode( observations[i], 4 );
+	}
+	for( i = 0; i < nCnt; i++ )
+	{
+		CRect rcCur = allobjs.GetAt( i );
+		int nRcW = rcCur.Width();
+		int nRcH = rcCur.Height();
+		int nRcDisX = 0;
+		int nRcDisY = 0;
+		if( i != 0 )
+		{
+			CRect rcPre = allobjs.GetAt( i - 1 );
+
+			//nRcDisX = rcCur.CenterPoint().x - rcPre.CenterPoint().x;
+			nRcDisX = rcCur.left - rcPre.right;
+			nRcDisY = rcCur.CenterPoint().y - rcPre.CenterPoint().y;
+		}
+		else
+		{
+			nRcDisX = nRcDis;//nRcDis + nCharW;
+			nRcDisY = 0;
+		}
+
+		if( nRcW < nCharW ) nRcW = nCharW;
+		
+		observations[i].pfFea[0] = nRcW;
+		observations[i].pfFea[1] = nRcH;
+		observations[i].pfFea[2] = nRcDisX;
+		observations[i].pfFea[3] = nRcDisY;
+
+	}
+////////////////////////End -- Observation Nodes//////////////////////////
+
+//////////////////////////Mean////////////////////////////////
+	float *refVal = new float[ nCnt * nFealen ];
+	for( i = 0; i < nCnt; i++ )
+	{
+		for( j = 0; j < nFealen; j++ )
+		{
+			refVal[ i * nFealen ] = nCharW;
+			refVal[ i * nFealen + 1] = nCharH;
+			refVal[ i * nFealen + 2] = nRcDis;//nCharW + nRcDis;
+			refVal[ i * nFealen + 3] = nCharH * 0.1;
+		}
+	}
+
+	switch( nlines )
+	{
+	case 2:
+		//For 2 - lines
+		refVal[ 4 * nFealen + 2 ] = -( 4 * nCharW + 3 * nRcDis);//- 3 * ( nCharW + nRcDis );
+		refVal[ 4 * nFealen + 3 ] = nCharH * 1.5;
+		//End -- For 2 lines
+		break;
+	default:
+		break;
+	}
+///////////////////////End -- Mean///////////////////////////
+
+////////////////////////Standard Deviation////////////////////
+	float *fRatio = new float[ nCnt * nFealen ];
+	for( i = 0; i < nCnt; i++ )
+	{
+		for( j = 0; j < nFealen - 1; j++ )
+		{
+			fRatio[i * nFealen + j] = 0.2;
+		}
+		fRatio[ i * nFealen + nFealen - 1 ] = 1;
+	}
+
+	fRatio[10 * nFealen ] = 0.8f;
+	fRatio[10 * nFealen + 1] = 0.8f;
+	fRatio[10 * nFealen + 2] = 1.0f;
+	fRatio[10 * nFealen + 3] = 1.0f;
+
+	switch( nlines )
+	{
+	case 1:
+		fRatio[4 * nFealen + 2 ] = 6.0f;
+		fRatio[10 * nFealen + 2 ] = 4.0f;
+		break;
+	case 2:
+		//For 2 - lines
+		fRatio[4 * nFealen + 2] = 0.25f;
+		fRatio[4 * nFealen + 3] = 0.5f;
+		fRatio[10 * nFealen + 2 ] = 4.0f;
+		//End -- For 2 lines
+		break;
+	default:
+		break;
+	}
+	
+
+
+//////////////////End -- Standard Deviation////////////////////
+
+	float fHMMDist = 0.0f;
+	for( i = 0; i < nCnt; i++ )
+	{
+		for( j = 0; j < nFealen; j++ )
+		{
+			float dis = observations[i].pfFea[j] - refVal[ i * nFealen + j];
+			float dev = 0.0f;
+			switch( j )
+			{
+				case 2://DisX
+					dev = fRatio[ i * nFealen + j ] * max( refVal[i * nFealen + j], 3 );
+					break;
+				default:
+					dev = fRatio[ i * nFealen + j ] * refVal[i * nFealen + j];
+			}
+			float power = dis * dis / ( 2 * dev * dev );
+			//#define _localdebugforLowProb
+			#ifdef _localdebugforLowProb//watch for some lower probability
+			if( exp( -power ) < 0.4f )
+			{
+				float fProb = exp( -power );
+				int nBreak = 1;
+			}
+			#endif
+			fHMMDist += power;
+		}
+	}
+
+	fHMMConf = exp( (-fHMMDist) / (float)4 / (float)11  );
+
+#ifdef DEBUG_HMMCONF
+	ofstream fHmmConfInfo;
+	CString strHmmConfFile = m_strCurDebugDir + fname + _T("_HMM_Conf.txt");
+	fHmmConfInfo.open( strHmmConfFile, ios::out );
+
+	fHmmConfInfo << "RefVals : " << "\t\t";
+
+	for( i = 0; i < nFealen; i++ )
+	{
+		fHmmConfInfo << refVal[i] << "\t";
+	}
+
+	fHmmConfInfo << endl;
+
+	fHmmConfInfo << "Observations : " << endl;
+	
+	writeObNodes( fHmmConfInfo, observations, nCnt, nFealen );
+
+	fHmmConfInfo << "HMM Dist : " << fHMMDist << endl;
+
+	fHmmConfInfo << "HMM Conf : " << fHMMConf << endl;
+
+	//fHmmConfInfo << "Ref -- Exp(-0.5) = " << exp(-0.5) << endl;
+
+	fHmmConfInfo.close();
+#endif//End -- DEBUG_HMMCONF
+
+
+	for( i = 0; i < nCnt; i++ )
+	{
+		freeObNode( observations[i] );
+	}
+	delete[] observations;
+	delete[] fRatio;
+	delete[] refVal;
+
+	allobjs.RemoveAll();
+	
+	return TRUE;
+}
+BOOL CConNumProc::GetLines( ObjRectArray& allobjs, int& nlines )
+{
+	//if return nlines == 11, means vertically aligned.
+	nlines = -1;
+	int nCnt = allobjs.GetSize();
+	if( nCnt != 11 )
+	{
+		return FALSE;
+	}
+
+	int i = 0;
+	CRect rc1 = allobjs.GetAt(0);
+	CRect rc2 = allobjs.GetAt(4);
+	CRect rc3 = allobjs.GetAt(10);
+
+	if( rc2.top < rc1.bottom ) nlines = 1;
+	else if( rc3.top < rc2.bottom ) nlines = 2;
+	else if( (rc2.top - rc1.bottom) > 2 * rc1.Height() ) nlines = 11;
+	else if( (rc3.top - rc2.bottom) > rc2.Height() ) nlines = 4;
+	else nlines = 3;
+
+	return TRUE;
+}
+BOOL CConNumProc::CheckInsertRect( ObjRectArray& allobjs )
+{
+	int i = 0;
+	int nCnt = allobjs.GetSize();
+	for( i = 0; i < nCnt; i++ )
+	{
+		CRect rcCur = allobjs.GetAt(i);
+		if( rcCur.left == rcCur.right || rcCur.top == rcCur.bottom )
+		{
+			return TRUE;
+		}
+	}
+
+	return FALSE;
+}
+#endif//End -- TEST_HMMCONF

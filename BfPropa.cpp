@@ -1,6 +1,26 @@
 #include "StdAfx.h"
 #include "BfPropa.h"
 
+bool initObNode( ObNode& obj, int nFeaLen )
+{
+	int i = 0;
+	if( obj.pfFea != NULL )
+	{
+		delete[] obj.pfFea;
+		obj.pfFea = NULL;
+	}
+	obj.nFeaLen = 0;
+
+	obj.nFeaLen = nFeaLen;
+	obj.pfFea = new float[nFeaLen];
+	
+	for( i = 0; i < nFeaLen; i++ )
+	{
+		obj.pfFea[i] = 0.0f;
+	}
+
+	return true;
+}
 
 void freeObNode( ObNode& obj )
 {
@@ -965,11 +985,12 @@ bool getPACStruct( PACStruct& allPosModes, int nMisChars,  int nTotalInsPos, CAr
 		}
 	}
 
+	//Judge the validation of the insertion, after which the mode should be "4-7" or "11" or "4-6-1" or "10-1"
 	bool bPosMode = preCombJudge( pCurSelMode , nTotalInsPos, seqDistsArray, seqCharsArray );
 	int nTotalCombs = 0;
 	//ATTENTION CARRAY's VALUE COPYING
 	INSMOD curMode;
-	if( bPosMode )
+	if( bPosMode )//If this is a valid insertion mode, just add it to allPosModes
 	{
 		curMode.nlen = nTotalInsPos;
 		curMode.insertMode = new int[nTotalInsPos];

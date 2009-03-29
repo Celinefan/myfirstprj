@@ -13,7 +13,14 @@ struct ObNode//observed node
 {
 	float *pfFea;//feature
 	int nFeaLen;//feature length
+	
+	ObNode()
+	{
+		pfFea = NULL;
+		nFeaLen = 0;
+	}
 };
+bool initObNode( ObNode& obj, int nFeaLen );
 void freeObNode( ObNode& obj );
 void writeObNodes( ofstream& ndInfoFile, ObNode* pObj, int nNodes, int nFealen );
 struct HiNode//hidden state node
