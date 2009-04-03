@@ -24,6 +24,7 @@
 #include <io.h>
 
 #include <DataArray.h>
+#include <stmod.h>
 
 
 //#define TIME_LIMITED
@@ -45,16 +46,20 @@
 
 #define TEST_HMMCONF//ADDED 20090325 -- For HMM Segmentation Confidence Calculation
 #define DEBUG_HMMCONF//ADDED 20090326 -- For HMM Segmentation Confidence Debugging
+#define DEBUG_INSNODE
 #ifdef DEBUG_HMMCONF
+#define SAVE_DEBUGINFO_FILES
+#endif
+#ifdef DEBUG_INSNODE
 #define SAVE_DEBUGINFO_FILES
 #endif
 
 #define ONLY_TEST_HMMCONF
 
 
-//#define SAVE_DEBUGINFO_FILES
-//#define SAVE_PLATEPOS_INFO
-//#define SAVE_CUTCHAR_INFO
+#define SAVE_DEBUGINFO_FILES
+#define SAVE_PLATEPOS_INFO
+#define SAVE_CUTCHAR_INFO
 //#define SAVE_CHARS
 //#define SAVE_CHECKCHAR_INFO
 

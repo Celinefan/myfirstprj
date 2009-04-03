@@ -1462,7 +1462,48 @@ BOOL WriteRect2Txt( fstream &fInfo, CRect rcCur )
 	fInfo << strCurRc;
 	return bSuc;
 }
+BOOL WriteRect2Txt( ofstream &fInfo, CRect rcCur )
+{
+	BOOL bSuc = TRUE;
+	CString strCurRc = _T("");
+	int l = rcCur.left;
+	int r = rcCur.right;
+	int t = rcCur.top;
+	int b = rcCur.bottom;
+	int h = rcCur.Height();
+	int w = rcCur.Width();
+	strCurRc.Format( " (%003d, %003d),\t(%003d, %003d),\t(%003d, %003d) -- hwr : %f", t, b, l, r, h, w, ((float)h/(float)w) );
+	fInfo << strCurRc;
+	return bSuc;
+}
 BOOL WriteRcArray2Txt( fstream &fInfo, ObjRectArray& rcArray )
+{
+	BOOL bSuc = TRUE;
+
+	int nCnt = rcArray.GetSize();
+	if( nCnt <= 0 ) return FALSE;
+	//SortRect(rcArray);	
+
+	CRect rcCur = rcArray.GetAt(0);
+	CRect rcNext;
+	for( int ii = 0; ii < nCnt; ii++, rcCur = rcNext )
+	{
+		fInfo << " _" << ii << _T("\t: ");
+		WriteRect2Txt( fInfo, rcCur );
+		if( ii < nCnt - 1 )
+		{
+			rcNext = rcArray.GetAt(ii+1);
+			int Dis = rcNext.left - rcCur.right;
+			CString strDis;
+			strDis.Format( "\tDis : %02d", Dis );
+			fInfo << strDis;			
+		}
+		fInfo << " ; " << endl;
+	}
+
+	return bSuc;
+}
+BOOL WriteRcArray2Txt( ofstream &fInfo, ObjRectArray& rcArray )
 {
 	BOOL bSuc = TRUE;
 

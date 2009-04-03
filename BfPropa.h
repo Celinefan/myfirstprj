@@ -150,6 +150,37 @@ struct objFrames
 void FreeObjFramesStruct( objFrames& obj );
 
 
+struct OBJFEA
+{
+	int cenx;//center.x
+	int ceny;//center.y
+	int w;//width
+	int h;//height
+};
+void writeOBJFEAStruct( ofstream& outfile, OBJFEA& item );
+struct INSMOD
+{
+	int nlen;
+	int* insertMode;
+};
+void freeINSMOD( INSMOD& Item );
+struct PACStruct//permutation and combination
+{
+	int nPbs;//the number of probable situation;
+	CArray<INSMOD, INSMOD> InsModes;
+};
+bool writePACStruct( ofstream& outFile, PACStruct& Item );
+void freePACStruct( PACStruct& Item );
+bool getPACStruct( PACStruct& allPosModes, int nMisChars,  int nTotalInsPos, CArray<int,int>& seqDistsArray, CArray<int,int>& seqCharsArray );
+
+
+
+
+
+
+
+
+
 void ExNodesFea( ObNode* &obNodes, HiNode* &hiNodes, int& nNodes, int& nPosModes, int* &insertModes, int& nSeqs, objFrames& objInfo, 
 				CArray<int, int>& inputSeqCharsArray, CArray<int, int>& inputSeqDistsArray );
 

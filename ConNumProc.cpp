@@ -20,8 +20,11 @@ char dir[_MAX_DIR];
 char fname[_MAX_FNAME];
 char ext[_MAX_EXT];
 
+static int g_Watchi = 0;
+
 CConNumProc::CConNumProc() : m_ecoConChar(CString("data"))
 {
+	
 #ifdef SAVE_DEBUGINFO_FILES
 	InitParasForDebug();
 #endif
@@ -47,6 +50,14 @@ CConNumProc::CConNumProc() : m_ecoConChar(CString("data"))
 #ifdef CHECK_DOG
 	m_bCheckDog = TRUE;
 #endif
+
+#ifdef TEST_HMMCONF
+	int nNodes = 11;
+	int nFeas = 4;
+	m_HMMDevArray = FloatArray( nNodes, nFeas );
+	m_HMMDevST.Init( nNodes, nFeas );
+#endif
+
 }
 
 void CConNumProc::InitParas()
@@ -86,6 +97,14 @@ CConNumProc::~CConNumProc()
 		nNewTimes--;
 #endif		
 	}
+
+#ifdef TEST_HMMCONF
+	if( m_HMMDevArray != NULL )
+	{
+		FreeArray( m_HMMDevArray );
+		m_HMMDevArray = NULL;
+	}
+#endif
 }
 
 BOOL CConNumProc::SetProcFileString( CString& strFilePath )
@@ -897,9 +916,22 @@ REC:
 			strSrcFile = m_strCurDebugFile;
 			CString strDesFile;
 			strDesFile.Format("%s%s.jpg", strSubDir, fname );
+			int nDupFileCnt = 0;
+			while( (_access( strDesFile, 0 )) != -1 )
+			{
+				nDupFileCnt++;
+				strDesFile.Format("%s%s-%d.jpg", strSubDir, fname, nDupFileCnt);
+			}
 			MoveFile( m_strCurDebugFile, strDesFile );
 			strSrcFile = m_strCurDebugDir + fname + _T("_HMM_Conf.txt");
-			strDesFile = strSubDir + fname + _T("_HMM_Conf.txt");
+			if( nDupFileCnt == 0 )
+			{
+				strDesFile = strSubDir + fname + _T("_HMM_Conf.txt");
+			}
+			else
+			{
+				strDesFile.Format( "%s%s-%d_HMM_Conf.txt", strSubDir, fname, nDupFileCnt );
+			}
 			MoveFile( strSrcFile, strDesFile );
 		}
 
@@ -2279,7 +2311,13 @@ BOOL CConNumProc::HorRgnRcsAnaStrategy( ObjRectArray& charArray, ObjRectArray& a
 		{
 			nRcDis = 2;
 		}
-		RectsAnalyze_ByProb( charArray, allRcsArray, nCharW, nCharH, nRcDis, intSeqCharsArray, intSeqDisArray );
+		if( !RectsAnalyze_ByProb( charArray, allRcsArray, nCharW, nCharH, nRcDis, intSeqCharsArray, intSeqDisArray ) )
+		{
+			intSeqCharsArray.RemoveAll();
+			intSeqDisArray.RemoveAll();
+		}
+		ASSERT( intSeqCharsArray.GetSize() == 0 || intSeqCharsArray.GetSize() == intSeqDisArray.GetSize() + 1 );
+
 		
 #ifdef TEST_HMM
 		{
@@ -2293,6 +2331,22 @@ BOOL CConNumProc::HorRgnRcsAnaStrategy( ObjRectArray& charArray, ObjRectArray& a
 			ObjRectArray objsArray;
 			objsArray.RemoveAll();
 			objsArray.Copy( charArray );
+
+			int nthSeq = 0;
+			int nValChars = 0;
+			for( nthSeq = 0; nthSeq < intSeqCharsArray.GetSize(); nthSeq++ )
+			{
+				nValChars += intSeqCharsArray.GetAt(nthSeq);
+			}
+			int nTotalChars = objsArray.GetSize();
+			if( nValChars < nTotalChars )
+			{
+				int nId = 0;
+				for( nId = nTotalChars - 1; nId >= nValChars; nId-- )
+				{
+					objsArray.RemoveAt(nId);
+				}
+			}
 #ifdef SAVE_HMM_MID_RES
 			fstream fHmmInputInfo;
 			CString strHmmInputFile = m_strHMMDebugDir + _T("HMM_INPUT.txt");
@@ -2301,6 +2355,7 @@ BOOL CConNumProc::HorRgnRcsAnaStrategy( ObjRectArray& charArray, ObjRectArray& a
 				 , &intCharsArray, &intDistsArray );
 			fHmmInputInfo.close();
 #endif
+			g_Watchi++;
 			PatternAnalyze_ByHMM( intCharsArray, intDistsArray, nType_HMM, objsArray );
 		}
 
@@ -2876,10 +2931,73 @@ BOOL CConNumProc::PatternAnalyze( CArray<int,int>& intArray, int& nType, ObjRect
 #ifdef TEST_HMM
 BOOL CConNumProc::PatternAnalyze_ByHMM( CArray<int,int>& intArray, CArray<int,int>& disArray, int& nType, ObjRectArray& charArray )//Belief Propagation Analyze
 {
-#ifdef ONLY_TEST_HMMCONF
-	return FALSE;
-#endif
+#ifdef TEST_HMMCONF
+	int nSeqCnt1 = intArray.GetSize();
+	int nSeqCnt2 = disArray.GetSize();
+	if( nSeqCnt1 == 0 ) return FALSE;
+	ASSERT( nSeqCnt1 == nSeqCnt2 + 1);
+	if( nSeqCnt1 != nSeqCnt2 + 1 ) return FALSE;
+	float fHMMConf = 0.0f;
+	ObjRectArray resArray;
+	InsNodes_HMMConfAna( fHMMConf, resArray, charArray, intArray, disArray );
+	int nResCnt = resArray.GetSize();
+	if( fHMMConf > 0.6f && nResCnt == 11 )
+	{
+		int i = 0;
+		int nCharID = 0;//the index for charArray
+		CRect rcMis = CRect( 0, 0, 0, 0 );
+		int nMisChars = 0;
+		for( i = 0; i < nResCnt; i++ )
+		{
+			CRect rcCur_InRes = resArray.GetAt( i );
+			CRect rcCur_InChar = CRect( 0, 0, 0, 0 );
+			if( nCharID < charArray.GetSize() )
+			{
+				rcCur_InChar = charArray.GetAt( nCharID );
+			}
 
+			if( rcCur_InRes != rcCur_InChar )//Analyze whether the current rcCur_InRes is a InsNode 
+			{
+				resArray.SetAt( i, rcMis );
+				nMisChars++;
+			}
+			else
+			{
+				nCharID++;
+			}
+		}
+
+		ASSERT( resArray.GetSize() == 11 );
+		float fCutConf = fHMMConf - ( nMisChars / (float)11 ) * 0.95f;
+		
+		if( fCutConf > m_fCutConf )
+		{
+			m_NumCharArray_ByConf.RemoveAll();
+			m_ABCCharArray_ByConf.RemoveAll();
+
+			for( i = 0; i < 4; i++ )
+			{
+				CRect rcCur = resArray.GetAt( i );
+				m_ABCCharArray_ByConf.Add( rcCur );
+			}
+
+			for( i = 0; i < 7; i++ )
+			{
+				CRect rcCur = resArray.GetAt( 4 + i );
+				m_NumCharArray_ByConf.Add( rcCur );
+			}
+			
+
+			m_fCutConf = fCutConf;
+		}
+
+		return TRUE;
+	
+	}
+	
+	return FALSE;
+
+#endif
 	int i = 0;
 	int j = 0;
 	int k = 0;
@@ -2900,6 +3018,7 @@ BOOL CConNumProc::PatternAnalyze_ByHMM( CArray<int,int>& intArray, CArray<int,in
 	}
 	
 	int nMisChars = 11 - nCharsCnt;//20081127, refer to GetNumSeqType_ByConf(3 paras), only tackle 11 chars' situation
+	if( nMisChars > 3 ) return FALSE;
 	
 	CRect rcMis = CRect(0,0,0,0);
 
@@ -5425,7 +5544,7 @@ int CConNumProc::GetNumSeqType_ByConf( CArray<int,int>& intArray, CArray<int,int
 
 }
 
-int CConNumProc::GetNumSeqType_ByConf( CArray<int,int>& intArray, int &nDrop )
+int CConNumProc::GetNumSeqType_ByConf( CArray<int,int>& intArray, int &nDrop )//Judgement too simple, BUG!!!!
 {
 	// 0 : 正常切分出NumSeq
 	// 1 : NumSeq末字符可能存在边框影响
@@ -7586,15 +7705,12 @@ BOOL CConNumProc::RectsAnalyze_ByProb( ObjRectArray &charArray, ObjRectArray &al
 			{
 				intArray.Add( nCurSeqLen );
 				nCurSeqLen = 0;
-
-				disArray.Add( nApartVer );
-				
 				if( (nCnt1 - i) <= 5)
 				{
 					nCurSeqLen = -1;//Mark quit
 					break;
 				}
-				
+				disArray.Add( nApartVer );				
 				continue;
 			}
 
@@ -9703,7 +9819,7 @@ BOOL CConNumProc::TryGetPreVerRgns( IMAGE imgGray, ObjRectArray& rcArray, int nT
 //		DrawObjRectArray( imgVer, rcArray );
 //		m_strCurDebugFile.Format("%s%s_abtry%s",m_strCurDebugDir,fname,CString(_T("_platepos.jpg")));
 //		ImageSave( imgVer, m_strCurDebugFile );
-//#endif		
+//#endif
 // 	}
 
 	SortRect(rcArray);
@@ -9714,6 +9830,228 @@ BOOL CConNumProc::TryGetPreVerRgns( IMAGE imgGray, ObjRectArray& rcArray, int nT
 }
 
 #ifdef TEST_HMMCONF
+BOOL CConNumProc::InsNodes_HMMConfAna( float &fHMMConf, ObjRectArray& resArray, ObjRectArray& allobjs, CArray<int, int>& inputSeqCharsArray, CArray<int, int>& inputSeqDistsArray )
+{
+	fHMMConf = 0.0f;
+	int i = 0;
+	int j = 0;
+	int k = 0;
+
+	
+	int nChars = allobjs.GetSize();
+	if( nChars >= 11 )
+	{
+		return FALSE;
+	}
+	int nMisChars = 11 - nChars;
+	if( nMisChars > 3 )
+	{
+		return FALSE;
+	}
+	
+
+	int nCharW = 0;
+	int nCharH = 0;
+	int nRcDis = 0;
+
+	GetAverRcWH( allobjs, nCharW, nCharH );
+	GetRcDis( allobjs, nRcDis );
+
+	if( nCharW == 0 || nCharH == 0 || nRcDis == 0 )
+	{
+		return FALSE;
+	}
+
+
+	for( i = 0; i < inputSeqDistsArray.GetSize(); i++ )//Michael Add 20081209 -- May meet value 9999, which'll cause large time cost;
+	{
+		if( inputSeqDistsArray.GetAt(i) >= 5 )
+		{
+			return FALSE;
+		}
+	}
+
+#ifdef DEBUG_INSNODE
+	CString strPreDebugDir = m_strCurDebugDir;
+	m_strCurDebugDir = m_strDebugDir + _T("HMM_INSNODE_INFO\\");
+	CreateDirectory( m_strCurDebugDir, NULL );
+#endif
+
+	CArray<int,int> seqCharsArray;
+	CArray<int,int> seqDistsArray;
+	seqCharsArray.RemoveAll();
+	seqDistsArray.RemoveAll();
+	for( i = 0; i < inputSeqCharsArray.GetSize(); i++ )
+	{
+		seqCharsArray.Add( inputSeqCharsArray.GetAt(i) );
+	}
+	int nTotalInsPos = 0;
+	seqDistsArray.Add( nMisChars );
+	nTotalInsPos += nMisChars;
+	for( i = 0; i < inputSeqDistsArray.GetSize(); i++ )
+	{
+		seqDistsArray.Add( inputSeqDistsArray.GetAt(i) );
+		nTotalInsPos += inputSeqDistsArray.GetAt(i);
+	}
+	seqDistsArray.Add( nMisChars );
+	nTotalInsPos += nMisChars;
+
+#ifdef DEBUG_INSNODE
+	CString strInputInfoFile = m_strCurDebugDir + _T("inputInfo.txt");
+	fstream fInputInfo;
+	fInputInfo.open( strInputInfoFile, ios::out | ios::trunc );
+	fInputInfo << "H : " << nCharH << "\t";
+	fInputInfo << "W : " << nCharW << "\t";
+	fInputInfo << "Dis : " << nRcDis << "\n";
+	WriteRcArray2Txt( fInputInfo, allobjs );
+	WriteIntArray( fInputInfo, CString(_T("CharsArray : ")), &seqCharsArray );
+	WriteIntArray( fInputInfo, CString(_T("DistsArray : ")), &seqDistsArray );
+	fInputInfo.close();
+#endif
+
+	//Possible insertion modes generation
+	PACStruct allPosModes;
+	allPosModes.nPbs = 0;
+	int nCharsSeqCnt = seqCharsArray.GetSize();
+	int nDistsSeqCnt = seqDistsArray.GetSize();
+	ASSERT( nDistsSeqCnt == nCharsSeqCnt + 1 );
+	getPACStruct( allPosModes, nMisChars, nTotalInsPos, seqDistsArray, seqCharsArray );
+	//end -- Possible insertion modes generation
+	int nPosModes = allPosModes.nPbs;
+	int nBlanks = (int)seqDistsArray.GetSize();
+#ifdef DEBUG_INSNODE
+	CString strPACInfoFile = m_strCurDebugDir + _T("PACStruct.txt");
+	ofstream outFile;
+	outFile.open( strPACInfoFile, ios::out | ios::trunc );
+	writePACStruct( outFile, allPosModes );
+	outFile.close();
+#endif
+
+
+#ifdef DEBUG_INSNODE
+	CString strNodesInfoFile = m_strCurDebugDir + _T("Nodes.txt");
+	outFile.open( strNodesInfoFile, ios::out | ios::trunc );
+#endif
+	
+	ObjRectArray compRcs;
+	for( i = 0; i < nPosModes; i++ )
+	{
+		compRcs.RemoveAll();
+		int* pCurInsMode = allPosModes.InsModes.GetAt(i).insertMode;
+		int nlen = allPosModes.InsModes.GetAt(i).nlen;
+
+		int nCurID = 0;
+		int nCurCharsID = 0;
+		int nCurNodeID = 0;
+		int nCurInsModID = 0;
+		for( j = 0; j < nBlanks; j++ )
+		{
+			int nCurInsPoses = seqDistsArray.GetAt( j );//The number of chars that could be inserted into current blank
+			int nZeros = 0;
+			for( k = 0; k < nCurInsPoses; k++ )
+			{
+				if( pCurInsMode[nCurID] == 1 )
+				{
+					CRect rcAdd = CRect( 0, 0, 0, 0 );
+					if( j == 0 )//Add before the first character
+					{
+						CRect rcRef = CRect( 0, 0, 0, 0 );//The reference rect is the first rect in current sequence
+						if( compRcs.GetSize() == 0 )
+						{
+							rcRef = allobjs.GetAt( 0 );
+						}
+						else
+						{
+							rcRef = compRcs.GetAt( 0 );
+						}
+						rcAdd.right = rcRef.left - nRcDis;
+						rcAdd.left = rcAdd.right - nCharW;
+						rcAdd.top = rcRef.CenterPoint().y - nCharH / 2;
+						rcAdd.bottom = rcAdd.top + nCharH;
+						compRcs.InsertAt( 0, rcAdd );
+					}
+					else if( j == nBlanks - 1 )
+					{
+						int ntmpCnt = compRcs.GetSize();
+						CRect rcRef = compRcs.GetAt( ntmpCnt - 1 );//The reference rect is the last one in current sequence
+						rcAdd.left = rcRef.right + nRcDis;
+						rcAdd.right = rcAdd.left + nCharW;
+						rcAdd.top = rcRef.CenterPoint().y - nCharH / 2;
+						rcAdd.bottom = rcAdd.top + nCharH;
+						compRcs.Add( rcAdd );
+					}
+					else
+					{
+						int ntmpCnt = compRcs.GetSize();
+						CRect rcRef1 = compRcs.GetAt( ntmpCnt - 1 );//The previous one
+						CRect rcRef2 = allobjs.GetAt( nCurCharsID );//The next one
+						
+						rcAdd.left = rcRef1.right + ( nRcDis + nCharW ) * nZeros + nRcDis;
+						rcAdd.right = rcAdd.left + nCharW;
+						rcAdd.top = ( rcRef1.CenterPoint().y + rcRef2.CenterPoint().y ) / 2 - nCharH / 2;
+						rcAdd.bottom = rcAdd.top + nCharH;
+						compRcs.Add( rcAdd );
+					}
+
+					nCurNodeID++;
+					nZeros = 0;
+				}
+				else
+				{
+					nZeros++;
+				}
+				nCurID++;
+			}
+
+			nCurInsModID++;
+
+			if( j != ( nBlanks - 1 ) )
+			{
+				int nCurSeqChars = seqCharsArray.GetAt( j );//The number of current seq chars'.
+				ASSERT( nCurInsModID == 2 * j + 1 );
+
+				for( k = 0; k < nCurSeqChars; k++ )
+				{
+					CRect rcCurChar = allobjs.GetAt( nCurCharsID );
+					compRcs.Add( rcCurChar );
+					nCurCharsID++;
+					nCurNodeID++;
+				}
+				nCurInsModID++;
+			}
+		
+		}
+
+		float fCurHMMConf;
+		GetHMMConf( compRcs, fCurHMMConf );
+		if( fCurHMMConf > 1.0f ) fCurHMMConf = 0.0f;
+		if( fCurHMMConf > fHMMConf )
+		{
+			fHMMConf = fCurHMMConf;
+			resArray.RemoveAll();
+			resArray.Copy( compRcs );
+		}
+
+#ifdef DEBUG_INSNODE
+		outFile << i << "th/" << nPosModes << " Possible Mode : " << endl;
+		outFile << "Insert Result : " << endl;
+		WriteRcArray2Txt( outFile, compRcs );
+		outFile << "HMMConf : " << fCurHMMConf << endl;
+#endif	
+	}
+
+#ifdef DEBUG_INSNODE
+	outFile.close();
+#endif
+
+	freePACStruct( allPosModes );
+
+#ifdef DEBUG_INSNODE
+	m_strCurDebugDir = strPreDebugDir;
+#endif
+	return TRUE;
+}
+
 BOOL CConNumProc::GetHMMConf( ObjRectArray& allobjs, float &fHMMConf )
 {   
 	fHMMConf = 0.0f;
@@ -9750,6 +10088,11 @@ BOOL CConNumProc::GetHMMConf( ObjRectArray& allobjs, float &fHMMConf )
 	GetAverRcWH( allobjs, nCharW, nCharH );
 	GetRcDis( allobjs, nRcDis );
 
+	if( nCharW == 0 || nCharH == 0 || nRcDis == 0 )
+	{
+		return FALSE;
+	}
+
 ////////////////////////////Observation Nodes//////////////////////////////
 	int nFealen = 4;
 	ObNode *observations = new ObNode[nCnt];
@@ -9771,11 +10114,16 @@ BOOL CConNumProc::GetHMMConf( ObjRectArray& allobjs, float &fHMMConf )
 			//nRcDisX = rcCur.CenterPoint().x - rcPre.CenterPoint().x;
 			nRcDisX = rcCur.left - rcPre.right;
 			nRcDisY = rcCur.CenterPoint().y - rcPre.CenterPoint().y;
+			if( nRcDisY < nCharH * 0.1 )
+			{
+				nRcDisY = nCharH * 0.1;
+			}
 		}
 		else
 		{
 			nRcDisX = nRcDis;//nRcDis + nCharW;
-			nRcDisY = 0;
+			//nRcDisY = 0;
+			nRcDisY = nCharH * 0.1;
 		}
 
 		if( nRcW < nCharW ) nRcW = nCharW;
@@ -9856,7 +10204,8 @@ BOOL CConNumProc::GetHMMConf( ObjRectArray& allobjs, float &fHMMConf )
 	{
 		for( j = 0; j < nFealen; j++ )
 		{
-			float dis = observations[i].pfFea[j] - refVal[ i * nFealen + j];
+			float curRefVal = refVal[ i * nFealen + j ];
+			float dis = observations[i].pfFea[j] - curRefVal;
 			float dev = 0.0f;
 			switch( j )
 			{
@@ -9867,6 +10216,7 @@ BOOL CConNumProc::GetHMMConf( ObjRectArray& allobjs, float &fHMMConf )
 					dev = fRatio[ i * nFealen + j ] * refVal[i * nFealen + j];
 			}
 			float power = dis * dis / ( 2 * dev * dev );
+
 			//#define _localdebugforLowProb
 			#ifdef _localdebugforLowProb//watch for some lower probability
 			if( exp( -power ) < 0.4f )
@@ -9875,11 +10225,20 @@ BOOL CConNumProc::GetHMMConf( ObjRectArray& allobjs, float &fHMMConf )
 				int nBreak = 1;
 			}
 			#endif
-			fHMMDist += power;
+			fHMMDist += power;	
+			
+			////////////////////////////Current Deviation//////////////////
+			curRefVal = max( curRefVal, 1 );
+			m_HMMDevArray[i][j] = dis * dis / ( curRefVal * curRefVal );
+			///////////////////////End -- Current Deviation////////////////
 		}
 	}
-
 	fHMMConf = exp( (-fHMMDist) / (float)4 / (float)11  );
+
+	/////////////////////Deviation Statistic////////////////////////////////
+	m_HMMDevST.InputArray( m_HMMDevArray );
+	///////////////End -- Deviation Statistic///////////////////////////////
+	
 
 #ifdef DEBUG_HMMCONF
 	ofstream fHmmConfInfo;
@@ -9906,6 +10265,11 @@ BOOL CConNumProc::GetHMMConf( ObjRectArray& allobjs, float &fHMMConf )
 	//fHmmConfInfo << "Ref -- Exp(-0.5) = " << exp(-0.5) << endl;
 
 	fHmmConfInfo.close();
+
+	CString strHmmDevInfo = m_strCurDebugDir + _T("HMM_DEV_ST.txt");
+	fHmmConfInfo.open( strHmmDevInfo, ios::out );
+	m_HMMDevST.OutRes(fHmmConfInfo);
+	fHmmConfInfo.close();
 #endif//End -- DEBUG_HMMCONF
 
 
@@ -9917,7 +10281,7 @@ BOOL CConNumProc::GetHMMConf( ObjRectArray& allobjs, float &fHMMConf )
 	delete[] fRatio;
 	delete[] refVal;
 
-	allobjs.RemoveAll();
+	//allobjs.RemoveAll();
 	
 	return TRUE;
 }

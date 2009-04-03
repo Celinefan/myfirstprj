@@ -194,6 +194,11 @@ private:
 	BOOL GetHMMConf( ObjRectArray& allobjs, float &fHMMConf );
 	BOOL GetLines( ObjRectArray& allobjs, int& nlines );
 	BOOL CheckInsertRect( ObjRectArray& allobjs );
+
+	float** m_HMMDevArray;//Current Deviation Array
+	CStModel m_HMMDevST;//Deviation Statistics
+
+	BOOL InsNodes_HMMConfAna( float &fHMMConf, ObjRectArray& resArray, ObjRectArray& allobjs, CArray<int, int>& inputSeqCharsArray, CArray<int, int>& inputSeqDistsArray );
 #endif
 
 };

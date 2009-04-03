@@ -754,13 +754,6 @@ bool CBfPropa::writeBfMsgInfo( )
 //----------------------------------Generate Nodes Functions-----------------------------------
 //######################################################
 //typedef CArray<int,int> INSMOD;//Insert mode
-struct OBJFEA
-{
-	int cenx;//center.x
-	int ceny;//center.y
-	int w;//width
-	int h;//height
-};
 void writeOBJFEAStruct( ofstream& outfile, OBJFEA& item )
 {
 	outfile << "( " << item.cenx << ", " 
@@ -768,21 +761,11 @@ void writeOBJFEAStruct( ofstream& outfile, OBJFEA& item )
 		<< item.w << ", "
 		<< item.h << " )"; 
 }
-struct INSMOD
-{
-	int nlen;
-	int* insertMode;
-};
 void freeINSMOD( INSMOD& Item )
 {
 	delete[] Item.insertMode;
 	Item.nlen = 0;
 }
-struct PACStruct//permutation and combination
-{
-	int nPbs;//the number of probable situation;
-	CArray<INSMOD, INSMOD> InsModes;
-};
 bool writePACStruct( ofstream& outFile, PACStruct& Item )
 {
 	int i = 0;
@@ -803,7 +786,7 @@ bool writePACStruct( ofstream& outFile, PACStruct& Item )
 	}
 
 	return true;
-};
+}
 void freePACStruct( PACStruct& Item )
 {
 	int i = 0;

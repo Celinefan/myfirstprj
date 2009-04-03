@@ -72,7 +72,9 @@ float randNum();
 
 BOOL RegulateRect( CRect &rc, int l, int t, int r, int b );
 BOOL WriteRect2Txt( fstream &fInfo, CRect rcCur );
+BOOL WriteRect2Txt( fstream &ofInfo, CRect rcCur );
 BOOL WriteRcArray2Txt( fstream &fInfo, ObjRectArray& rcArray );
+BOOL WriteRcArray2Txt( ofstream &fInfo, ObjRectArray& rcArray );
 
 int FindMaxValPos( int *pnArray, int Len, int &nPos );
 int FindMinValPos( int *pnArray, int Len, int &nPos );
