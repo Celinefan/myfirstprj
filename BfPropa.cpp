@@ -934,10 +934,12 @@ bool preCombJudge( int* pCurSelMode , int nTotalInsPos, CArray<int,int>& seqDist
 	{
 	case 1:
 		if( AlignMode.GetAt(0) == 11 ) bPosMode = true;
+		if( AlignMode.GetAt(0) == 7 ) bPosMode = true;//Michael Add 20090404, for num region insertion.
 		break;
 	case 2:
 		if( AlignMode.GetAt(0) == 4 && AlignMode.GetAt(1) == 7 ) bPosMode = true;
 		else if( AlignMode.GetAt(0) == 10 && AlignMode.GetAt(1) == 1 ) bPosMode = true;
+		else if( AlignMode.GetAt(0) == 6 && AlignMode.GetAt(1) == 1 ) bPosMode = true;//Michael Add 20090404, for num region insertion.
 		break;
 	case 3:
 		if( AlignMode.GetAt(0) == 4 && AlignMode.GetAt(1) == 6 && AlignMode.GetAt(2) == 1 ) bPosMode = true;

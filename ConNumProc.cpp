@@ -76,6 +76,15 @@ void CConNumProc::InitParas()
 	m_ABCCharArray_ByConf.RemoveAll();
 	m_fCutConf = 0.0f;
 #endif
+
+#ifdef TEST_HMM
+	m_NumCharArray_ByHMMComp.RemoveAll();
+	m_ABCCharArray_ByHMMComp.RemoveAll();
+	m_NumCharArray_ByHMMConf.RemoveAll();
+	m_ABCCharArray_ByHMMConf.RemoveAll();
+	m_fNumRgnHMMConf = 0.0f;
+	m_bTryHMMSearchABC = FALSE;
+#endif
 }
 
 void CConNumProc::InitParasForDebug()
@@ -2177,6 +2186,7 @@ BOOL CConNumProc::HorRgnRcsAnaStrategy( ObjRectArray& charArray, ObjRectArray& a
 {
 
 	BOOL bSuc = FALSE;
+	BOOL bTrans2W = FALSE;
 
 #ifdef SAVE_CUTCHAR_INFO
 	if( !bBlack )
@@ -2227,7 +2237,7 @@ BOOL CConNumProc::HorRgnRcsAnaStrategy( ObjRectArray& charArray, ObjRectArray& a
 		{
 			PatternAnalyze_ByConf(intArray, nType_Conf, charArray);
 		}
-		else
+		else//numbers is aligned, while abcs not?????
 		{
 			if( nType < 2 && charArray.GetSize() >= 9 )
 			{
@@ -2356,10 +2366,35 @@ BOOL CConNumProc::HorRgnRcsAnaStrategy( ObjRectArray& charArray, ObjRectArray& a
 			fHmmInputInfo.close();
 #endif
 			g_Watchi++;
-			PatternAnalyze_ByHMM( intCharsArray, intDistsArray, nType_HMM, objsArray );
+			if( nTotalChars > 7 )
+			{
+				PatternAnalyze_ByHMM( intCharsArray, intDistsArray, nType_HMM, objsArray );
+			}
+			else
+			{
+				float fConf = 0.0f;
+				ObjRectArray resArray;
+				InsNodes_HMMConfAna_ForNumRgn( fConf, resArray, objsArray, intCharsArray, intDistsArray );
+				if( resArray.GetSize() == 7 && fConf > m_fNumRgnHMMConf )
+				{
+					m_fNumRgnHMMConf = fConf;
+					m_bTryHMMSearchABC = TRUE;
+					m_NumCharArray_ByHMMComp.RemoveAll();
+					m_ABCCharArray_ByHMMComp.RemoveAll();
+					m_NumCharArray_ByHMMConf.RemoveAll();
+					m_ABCCharArray_ByHMMConf.RemoveAll();
+					m_NumCharArray_ByHMMComp.Copy( resArray );
+					m_NumCharArray_ByHMMConf.Copy( resArray );
+					int nMisChars = 0;
+					TransCompres2Valres( m_NumCharArray_ByHMMConf, objsArray, nMisChars );
+				}
+
+			}
 		}
 
 #endif
+
+#ifndef TEST_HMM
 
 #ifdef SAVE_CUTCHAR_INFO
 		m_CurInfoFile << _T(" Rects Posibility Analyze : ") << endl;
@@ -2390,6 +2425,8 @@ BOOL CConNumProc::HorRgnRcsAnaStrategy( ObjRectArray& charArray, ObjRectArray& a
 
 		int nType_Conf = -1;
 		PatternAnalyze_ByConf( intSeqCharsArray, intSeqDisArray, nType_Conf, charArray );
+#endif
+
  	}
 #endif//End -- TEST_CUT_CONF_V2
 
@@ -2575,6 +2612,44 @@ BOOL CConNumProc::CutForChars( CRect rcNumRgn, IMAGE imgGrayOrg, BOOL bBlack )
 #endif
 			bCut = CopyCharPos( charArray, rcNumRgn, nType, imgGrayOrg, bBlack );
 		}
+
+#ifdef TEST_HMM
+		if( !bCut && m_bTryHMMSearchABC )//HMM try for searching ABC objs
+		{
+			m_bTryHMMSearchABC = FALSE;
+			int nNumsByHMMComp = m_NumCharArray_ByHMMComp.GetSize();
+			int nABCsByHMMComp = m_ABCCharArray_ByHMMComp.GetSize();
+			if( nNumsByHMMComp == 7 && nABCsByHMMComp == 0 )
+			{
+				ASSERT( m_NumCharArray_ByHMMConf.GetSize() == nNumsByHMMComp );
+				ASSERT( m_ABCCharArray_ByHMMConf.GetSize() == nABCsByHMMComp );
+
+				int nNums = m_NumCharArray.GetSize();
+				int nABCs = m_ABCCharArray.GetSize();
+
+				if( nNums == 0 && nABCs == 0 )
+				{
+					m_NumCharArray.Copy( m_NumCharArray_ByHMMComp );
+					m_rgnNumSeg = rcNumRgn;
+				
+					SearchABCChars( imgGrayOrg, bBlack );
+
+					nNums = m_NumCharArray.GetSize();
+					nABCs = m_ABCCharArray.GetSize();
+					
+					if( nNums > 0 && nABCs > 0 )
+					{
+						m_NumCharArray_ByConf.Copy( m_NumCharArray_ByHMMConf );
+						m_ABCCharArray_ByConf.Copy( m_ABCCharArray );
+						m_fCutConf = 0.8f;
+					}
+					m_NumCharArray.RemoveAll();
+					m_ABCCharArray.RemoveAll();
+				}
+
+			}
+		}
+#endif
 		
 		ImageFree( imgNumSeq_Gray );
 		ImageFree( imgNumSeq );
@@ -2929,6 +3004,36 @@ BOOL CConNumProc::PatternAnalyze( CArray<int,int>& intArray, int& nType, ObjRect
 }
 
 #ifdef TEST_HMM
+BOOL CConNumProc::TransCompres2Valres( ObjRectArray& CompArray, ObjRectArray& ValCharsArray, int &nMisChars )//Transfer inserted rects to rcMis
+{
+	int i = 0;
+	int nCharID = 0;//the index for charArray
+	CRect rcMis = CRect( 0, 0, 0, 0 );
+	nMisChars = 0;
+
+	int nCnt = CompArray.GetSize();
+	for( i = 0; i < nCnt; i++ )
+	{
+		CRect rcCur_InRes = CompArray.GetAt( i );
+		CRect rcCur_InChar = CRect( 0, 0, 0, 0 );
+		if( nCharID < ValCharsArray.GetSize() )
+		{
+			rcCur_InChar = ValCharsArray.GetAt( nCharID );
+		}
+
+		if( rcCur_InRes != rcCur_InChar )//Analyze whether the current rcCur_InRes is a InsNode 
+		{
+			CompArray.SetAt( i, rcMis );
+			nMisChars++;
+		}
+		else
+		{
+			nCharID++;
+		}
+	}
+
+	return TRUE;
+}
 BOOL CConNumProc::PatternAnalyze_ByHMM( CArray<int,int>& intArray, CArray<int,int>& disArray, int& nType, ObjRectArray& charArray )//Belief Propagation Analyze
 {
 #ifdef TEST_HMMCONF
@@ -2944,28 +3049,30 @@ BOOL CConNumProc::PatternAnalyze_ByHMM( CArray<int,int>& intArray, CArray<int,in
 	if( fHMMConf > 0.6f && nResCnt == 11 )
 	{
 		int i = 0;
-		int nCharID = 0;//the index for charArray
-		CRect rcMis = CRect( 0, 0, 0, 0 );
+// 		int nCharID = 0;//the index for charArray
+// 		CRect rcMis = CRect( 0, 0, 0, 0 );
+// 		int nMisChars = 0;
+// 		for( i = 0; i < nResCnt; i++ )
+// 		{
+// 			CRect rcCur_InRes = resArray.GetAt( i );
+// 			CRect rcCur_InChar = CRect( 0, 0, 0, 0 );
+// 			if( nCharID < charArray.GetSize() )
+// 			{
+// 				rcCur_InChar = charArray.GetAt( nCharID );
+// 			}
+// 
+// 			if( rcCur_InRes != rcCur_InChar )//Analyze whether the current rcCur_InRes is a InsNode 
+// 			{
+// 				resArray.SetAt( i, rcMis );
+// 				nMisChars++;
+// 			}
+// 			else
+// 			{
+// 				nCharID++;
+// 			}
+// 		}
 		int nMisChars = 0;
-		for( i = 0; i < nResCnt; i++ )
-		{
-			CRect rcCur_InRes = resArray.GetAt( i );
-			CRect rcCur_InChar = CRect( 0, 0, 0, 0 );
-			if( nCharID < charArray.GetSize() )
-			{
-				rcCur_InChar = charArray.GetAt( nCharID );
-			}
-
-			if( rcCur_InRes != rcCur_InChar )//Analyze whether the current rcCur_InRes is a InsNode 
-			{
-				resArray.SetAt( i, rcMis );
-				nMisChars++;
-			}
-			else
-			{
-				nCharID++;
-			}
-		}
+		TransCompres2Valres( resArray, charArray, nMisChars );
 
 		ASSERT( resArray.GetSize() == 11 );
 		float fCutConf = fHMMConf - ( nMisChars / (float)11 ) * 0.95f;
@@ -10024,6 +10131,275 @@ BOOL CConNumProc::InsNodes_HMMConfAna( float &fHMMConf, ObjRectArray& resArray, 
 
 		float fCurHMMConf;
 		GetHMMConf( compRcs, fCurHMMConf );
+		if( fCurHMMConf > 1.0f ) fCurHMMConf = 0.0f;
+		if( fCurHMMConf > fHMMConf )
+		{
+			fHMMConf = fCurHMMConf;
+			resArray.RemoveAll();
+			resArray.Copy( compRcs );
+		}
+
+#ifdef DEBUG_INSNODE
+		outFile << i << "th/" << nPosModes << " Possible Mode : " << endl;
+		outFile << "Insert Result : " << endl;
+		WriteRcArray2Txt( outFile, compRcs );
+		outFile << "HMMConf : " << fCurHMMConf << endl;
+#endif	
+	}
+
+#ifdef DEBUG_INSNODE
+	outFile.close();
+#endif
+
+	freePACStruct( allPosModes );
+
+#ifdef DEBUG_INSNODE
+	m_strCurDebugDir = strPreDebugDir;
+#endif
+	return TRUE;
+}
+
+BOOL CConNumProc::InsNodes_Prepare( int nRefNum, ObjRectArray& allobjs, int &nMisChars 
+								   , CArray<int, int>& inputSeqCharsArray, CArray<int, int>& inputSeqDistsArray 
+								   	, CArray<int,int>& outSeqCharsArray, CArray<int,int>& outSeqDistsArray, int& nTotalInsPos )
+{
+	int i = 0;
+	nMisChars = 0;
+	for( i = 0; i < inputSeqDistsArray.GetSize(); i++ )//cannot process multi-lines -- Michael 20090404, May be later...
+	{
+		if( inputSeqDistsArray.GetAt(i) >= 5 )
+		{
+			return FALSE;
+		}
+	}
+
+	int nChars = allobjs.GetSize();
+	if( nChars >= nRefNum )
+	{
+		return FALSE;
+	}
+	nMisChars = nRefNum - nChars;
+	if( nMisChars > max( 1, nRefNum * 0.3 ) )
+	{
+		nMisChars = 0;
+		return FALSE;
+	}
+
+	outSeqCharsArray.RemoveAll();
+	outSeqDistsArray.RemoveAll();
+	for( i = 0; i < inputSeqCharsArray.GetSize(); i++ )
+	{
+		outSeqCharsArray.Add( inputSeqCharsArray.GetAt(i) );
+	}
+	nTotalInsPos = 0;
+	outSeqDistsArray.Add( nMisChars );
+	nTotalInsPos += nMisChars;
+	for( i = 0; i < inputSeqDistsArray.GetSize(); i++ )
+	{
+		outSeqDistsArray.Add( inputSeqDistsArray.GetAt(i) );
+		nTotalInsPos += inputSeqDistsArray.GetAt(i);
+	}
+	outSeqDistsArray.Add( nMisChars );
+	nTotalInsPos += nMisChars;
+
+	return TRUE;
+}
+
+BOOL CConNumProc::GetInsertRc( CRect rcPre, CRect rcNext, CRect& rcAdd, int nCharW, int nCharH, int nRcDis, int nBlanks )
+{
+	if( rcPre == CRect(0,0,0,0) )
+	{
+		rcAdd.right = rcNext.left - nRcDis;
+		rcAdd.left = rcAdd.right - nCharW;
+		rcAdd.top = rcNext.CenterPoint().y - nCharH / 2;
+		rcAdd.bottom = rcAdd.top + nCharH;
+	}
+	else if( rcNext == CRect(0,0,0,0) )
+	{
+		rcAdd.left = rcPre.right + nRcDis;
+		rcAdd.right = rcAdd.left + nCharW;
+		rcAdd.top = rcPre.CenterPoint().y - nCharH / 2;
+		rcAdd.bottom = rcAdd.top + nCharH;
+	}
+	else
+	{
+		rcAdd.left = rcPre.right + ( nRcDis + nCharW ) * nBlanks + nRcDis;
+		rcAdd.right = rcAdd.left + nCharW;
+		rcAdd.top = ( rcPre.CenterPoint().y + rcNext.CenterPoint().y ) / 2 - nCharH / 2;
+		rcAdd.bottom = rcAdd.top + nCharH;
+	}
+
+	return TRUE;
+}
+
+BOOL CConNumProc::InsNodes_HMMConfAna_ForNumRgn( float &fHMMConf, ObjRectArray& resArray, ObjRectArray& allobjs, CArray<int, int>& inputSeqCharsArray, CArray<int, int>& inputSeqDistsArray )
+{
+	fHMMConf = 0.0f;
+	int i = 0;
+	int j = 0;
+	int k = 0;
+
+	int nCharW = 0;
+	int nCharH = 0;
+	int nRcDis = 0;
+
+	GetAverRcWH( allobjs, nCharW, nCharH );
+	GetRcDis( allobjs, nRcDis );
+
+	if( nCharW == 0 || nCharH == 0 || nRcDis == 0 )
+	{
+		return FALSE;
+	}	
+
+	int nMisChars = 0;
+	int nTotalInsPos = 0;
+	CArray<int,int> seqCharsArray;
+	CArray<int,int> seqDistsArray;
+	if( !InsNodes_Prepare( 7, allobjs, nMisChars, inputSeqCharsArray, inputSeqDistsArray, seqCharsArray, seqDistsArray, nTotalInsPos) )
+	{
+		return FALSE;
+	}
+
+#ifdef DEBUG_INSNODE
+	CString strPreDebugDir = m_strCurDebugDir;
+	m_strCurDebugDir = m_strDebugDir + _T("HMM_INSNODE_INFO_ForNumRgn\\");
+	CreateDirectory( m_strCurDebugDir, NULL );
+#endif
+
+
+#ifdef DEBUG_INSNODE
+	CString strInputInfoFile = m_strCurDebugDir + _T("inputInfo.txt");
+	fstream fInputInfo;
+	fInputInfo.open( strInputInfoFile, ios::out | ios::trunc );
+	fInputInfo << "H : " << nCharH << "\t";
+	fInputInfo << "W : " << nCharW << "\t";
+	fInputInfo << "Dis : " << nRcDis << "\n";
+	WriteRcArray2Txt( fInputInfo, allobjs );
+	WriteIntArray( fInputInfo, CString(_T("CharsArray : ")), &seqCharsArray );
+	WriteIntArray( fInputInfo, CString(_T("DistsArray : ")), &seqDistsArray );
+	fInputInfo.close();
+#endif
+
+	//Possible insertion modes generation
+	PACStruct allPosModes;
+	allPosModes.nPbs = 0;
+	int nCharsSeqCnt = seqCharsArray.GetSize();
+	int nDistsSeqCnt = seqDistsArray.GetSize();
+	ASSERT( nDistsSeqCnt == nCharsSeqCnt + 1 );
+	getPACStruct( allPosModes, nMisChars, nTotalInsPos, seqDistsArray, seqCharsArray );
+	//end -- Possible insertion modes generation
+	int nPosModes = allPosModes.nPbs;
+	int nBlanks = (int)seqDistsArray.GetSize();
+#ifdef DEBUG_INSNODE
+	CString strPACInfoFile = m_strCurDebugDir + _T("PACStruct.txt");
+	ofstream outFile;
+	outFile.open( strPACInfoFile, ios::out | ios::trunc );
+	writePACStruct( outFile, allPosModes );
+	outFile.close();
+#endif
+
+
+#ifdef DEBUG_INSNODE
+	CString strNodesInfoFile = m_strCurDebugDir + _T("Nodes.txt");
+	outFile.open( strNodesInfoFile, ios::out | ios::trunc );
+#endif
+	
+	ObjRectArray compRcs;
+	for( i = 0; i < nPosModes; i++ )
+	{
+		compRcs.RemoveAll();
+		int* pCurInsMode = allPosModes.InsModes.GetAt(i).insertMode;
+		int nlen = allPosModes.InsModes.GetAt(i).nlen;
+
+		int nCurID = 0;
+		int nCurCharsID = 0;
+		int nCurNodeID = 0;
+		int nCurInsModID = 0;
+		for( j = 0; j < nBlanks; j++ )
+		{
+			int nCurInsPoses = seqDistsArray.GetAt( j );//The number of chars that could be inserted into current blank
+			int nZeros = 0;
+			for( k = 0; k < nCurInsPoses; k++ )
+			{
+				if( pCurInsMode[nCurID] == 1 )
+				{
+					CRect rcAdd = CRect( 0, 0, 0, 0 );
+					CRect rcNULL = CRect( 0, 0, 0, 0 );
+					if( j == 0 )//Add before the first character
+					{
+						CRect rcRef = CRect( 0, 0, 0, 0 );//The reference rect is the first rect in current sequence
+						if( compRcs.GetSize() == 0 )
+						{
+							rcRef = allobjs.GetAt( 0 );
+						}
+						else
+						{
+							rcRef = compRcs.GetAt( 0 );
+						}
+// 						rcAdd.right = rcRef.left - nRcDis;
+// 						rcAdd.left = rcAdd.right - nCharW;
+// 						rcAdd.top = rcRef.CenterPoint().y - nCharH / 2;
+// 						rcAdd.bottom = rcAdd.top + nCharH;
+						GetInsertRc( rcNULL, rcRef, rcAdd, nCharW, nCharH, nRcDis );
+						compRcs.InsertAt( 0, rcAdd );
+					}
+					else if( j == nBlanks - 1 )
+					{
+						int ntmpCnt = compRcs.GetSize();
+						CRect rcRef = compRcs.GetAt( ntmpCnt - 1 );//The reference rect is the last one in current sequence
+// 						rcAdd.left = rcRef.right + nRcDis;
+// 						rcAdd.right = rcAdd.left + nCharW;
+// 						rcAdd.top = rcRef.CenterPoint().y - nCharH / 2;
+// 						rcAdd.bottom = rcAdd.top + nCharH;
+						GetInsertRc( rcRef, rcNULL, rcAdd, nCharW, nCharH, nRcDis );
+						compRcs.Add( rcAdd );
+					}
+					else
+					{
+						int ntmpCnt = compRcs.GetSize();
+						CRect rcRef1 = compRcs.GetAt( ntmpCnt - 1 );//The previous one
+						CRect rcRef2 = allobjs.GetAt( nCurCharsID );//The next one
+						
+// 						rcAdd.left = rcRef1.right + ( nRcDis + nCharW ) * nZeros + nRcDis;
+// 						rcAdd.right = rcAdd.left + nCharW;
+// 						rcAdd.top = ( rcRef1.CenterPoint().y + rcRef2.CenterPoint().y ) / 2 - nCharH / 2;
+// 						rcAdd.bottom = rcAdd.top + nCharH;
+						GetInsertRc( rcRef1, rcRef2, rcAdd, nCharW, nCharH, nRcDis );
+						compRcs.Add( rcAdd );
+					}
+
+					nCurNodeID++;
+					nZeros = 0;
+				}
+				else
+				{
+					nZeros++;
+				}
+				nCurID++;
+			}
+
+			nCurInsModID++;
+
+			if( j != ( nBlanks - 1 ) )
+			{
+				int nCurSeqChars = seqCharsArray.GetAt( j );//The number of current seq chars'.
+				ASSERT( nCurInsModID == 2 * j + 1 );
+
+				for( k = 0; k < nCurSeqChars; k++ )
+				{
+					CRect rcCurChar = allobjs.GetAt( nCurCharsID );
+					compRcs.Add( rcCurChar );
+					nCurCharsID++;
+					nCurNodeID++;
+				}
+				nCurInsModID++;
+			}
+		
+		}
+
+		float fCurHMMConf;
+		//GetHMMConf( compRcs, fCurHMMConf );
+		fCurHMMConf = 1.0f - 0.1f * nMisChars;
 		if( fCurHMMConf > 1.0f ) fCurHMMConf = 0.0f;
 		if( fCurHMMConf > fHMMConf )
 		{

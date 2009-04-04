@@ -50,6 +50,15 @@ private:
 	ObjRectArray m_ABCCharArray_ByConf;
 	float m_fCutConf;
 #endif
+
+#ifdef TEST_HMM
+	ObjRectArray m_NumCharArray_ByHMMComp;//With insertion estimation
+	ObjRectArray m_ABCCharArray_ByHMMComp;//With insertion estimation
+	ObjRectArray m_NumCharArray_ByHMMConf;//With insertion rcMis
+	ObjRectArray m_ABCCharArray_ByHMMConf;//With insertion rcMis
+	float m_fNumRgnHMMConf;
+	BOOL m_bTryHMMSearchABC;
+#endif
 	
 #ifdef CHECK_DOG
 	int m_bCheckDog;
@@ -199,6 +208,16 @@ private:
 	CStModel m_HMMDevST;//Deviation Statistics
 
 	BOOL InsNodes_HMMConfAna( float &fHMMConf, ObjRectArray& resArray, ObjRectArray& allobjs, CArray<int, int>& inputSeqCharsArray, CArray<int, int>& inputSeqDistsArray );
+	BOOL InsNodes_HMMConfAna_ForNumRgn( float &fHMMConf, ObjRectArray& resArray, ObjRectArray& allobjs, CArray<int, int>& inputSeqCharsArray, CArray<int, int>& inputSeqDistsArray );
+
+
+	BOOL InsNodes_Prepare( int nRefNum, ObjRectArray& allobjs, int &nMisChars 
+								   , CArray<int, int>& inputSeqCharsArray, CArray<int, int>& inputSeqDistsArray 
+								   	, CArray<int,int>& outSeqCharsArray, CArray<int,int>& outSeqDistsArray, int& nTotalInsPos );
+
+	BOOL GetInsertRc( CRect rcPre, CRect rcNext, CRect& rcAdd, int nCharW, int nCharH, int nRcDis, int nBlanks = 0 );
+
+	BOOL TransCompres2Valres( ObjRectArray& CompArray, ObjRectArray& ValCharsArray, int &nMisChars );
 #endif
 
 };
