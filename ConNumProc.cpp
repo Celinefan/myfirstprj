@@ -78,12 +78,13 @@ void CConNumProc::InitParas()
 #endif
 
 #ifdef TEST_HMM
-	m_NumCharArray_ByHMMComp.RemoveAll();
-	m_ABCCharArray_ByHMMComp.RemoveAll();
-	m_NumCharArray_ByHMMConf.RemoveAll();
-	m_ABCCharArray_ByHMMConf.RemoveAll();
-	m_fNumRgnHMMConf = 0.0f;
-	m_bTryHMMSearchABC = FALSE;
+// 	m_NumCharArray_ByHMMComp.RemoveAll();
+// 	m_ABCCharArray_ByHMMComp.RemoveAll();
+// 	m_NumCharArray_ByHMMConf.RemoveAll();
+// 	m_ABCCharArray_ByHMMConf.RemoveAll();
+// 	m_fNumRgnHMMConf = 0.0f;
+// 	m_bTryHMMSearchABC = FALSE;
+	HMMConfInit();
 #endif
 }
 
@@ -2639,10 +2640,37 @@ BOOL CConNumProc::CutForChars( CRect rcNumRgn, IMAGE imgGrayOrg, BOOL bBlack )
 					
 					if( nNums > 0 && nABCs > 0 )
 					{
-						m_NumCharArray_ByConf.Copy( m_NumCharArray_ByHMMConf );
-						m_ABCCharArray_ByConf.Copy( m_ABCCharArray );
-						m_fCutConf = 0.8f;
+						if( m_fNumRgnHMMConf > m_fCutConf )
+						{
+							m_NumCharArray_ByConf.Copy( m_NumCharArray_ByHMMConf );
+							m_ABCCharArray_ByConf.Copy( m_ABCCharArray );
+							m_fCutConf = m_fNumRgnHMMConf;
+						}
+
+// 						m_NumCharArray_ByHMMComp.RemoveAll();
+// 						m_NumCharArray_ByHMMConf.RemoveAll();
+// 						m_ABCCharArray_ByHMMComp.RemoveAll();
+// 						m_ABCCharArray_ByHMMConf.RemoveAll();
+// 						m_fNumRgnHMMConf = 0.0f;
+// 						m_bTryHMMSearchABC = FALSE;
+
+						
 					}
+					else 
+					{
+						nABCs = m_ABCCharArray_CURByConf.GetSize();
+						if( nNums > 0 && nABCs > 0 )
+						{
+							m_NumCharArray_ByConf.Copy( m_NumCharArray_ByHMMConf );
+							m_ABCCharArray_ByConf.Copy( m_ABCCharArray_CURByConf );
+							m_fCutConf = m_fHMMConf;
+						}
+
+					}
+
+
+					HMMConfInit();
+
 					m_NumCharArray.RemoveAll();
 					m_ABCCharArray.RemoveAll();
 				}
@@ -5188,7 +5216,7 @@ BOOL CConNumProc::ABCRgnAna_ByConf( ObjRectArray& charArray )
 			CRect rcCur = m_NumCharArray.GetAt(i);
 			if( rcCur != CRect(0,0,0,0) )
 			{
-				rcBotFirst = rcCur;
+				rcBotFirst = rcCur;//rcBotFirst : the first rect in the bottom line
 				break;
 			}
 		}
@@ -5236,13 +5264,14 @@ BOOL CConNumProc::ABCRgnAna_ByConf( ObjRectArray& charArray )
 		if( nMissPos >= 0 )
 		{
 			bSuc = TRUE;
+#ifndef TEST_HMMCONF//!TEST_HMMCONF
 			if( m_fCutConf < 0.6f )
 			{
 				m_fCutConf = 0.6f;
 				m_NumCharArray_ByConf.RemoveAll();
 				m_NumCharArray_ByConf.Copy( m_NumCharArray );
+				
 				m_ABCCharArray_ByConf.RemoveAll();
-
 				CRect rcMis = CRect(0,0,0,0);
 				int nCurID = 0;
 				for( i = 0; i < 3; i++ )
@@ -5261,6 +5290,55 @@ BOOL CConNumProc::ABCRgnAna_ByConf( ObjRectArray& charArray )
 					m_ABCCharArray_ByConf.Add(rcMis);
 				}
 			}
+#endif//!TEST_HMMCONF
+
+#ifdef TEST_HMMCONF//HMM Integrated in ABCRgn 1st Try
+			float ABCRgnConf = 0.8;
+			float CharArrayConf = ABCRgnConf;
+			ObjRectArray ABCCharArray;
+			CRect rcMis = CRect(0,0,0,0);
+			int nCurID = 0;
+			for( i = 0; i < 3; i++ )
+			{
+				CRect rcCur = charArray.GetAt(i);
+				if( nCurID == nMissPos )
+				{
+					ABCCharArray.Add( rcMis );
+					nCurID++;
+				}
+				ABCCharArray.Add(rcCur);
+				nCurID++;
+			}
+			if( nMissPos == 3 )
+			{
+				ABCCharArray.Add(rcMis);
+			}
+
+			if( m_NumCharArray_ByHMMConf.GetSize() == 7 && m_ABCCharArray_ByHMMConf.GetSize() == 0 )//NumRgn is containing inserted rects
+			{
+				CharArrayConf = CharArrayConf * m_fNumRgnHMMConf;
+				if( CharArrayConf > m_fHMMConf )
+				{
+					m_ABCCharArray_CURByConf.RemoveAll();
+					m_ABCCharArray_CURByConf.Copy(ABCCharArray);
+
+					m_fHMMConf = CharArrayConf;
+				}
+			}
+			else//NumRgn is with complete rects
+			{
+				if( CharArrayConf > m_fCutConf )
+				{
+					m_fCutConf = CharArrayConf;
+
+					m_NumCharArray_ByConf.RemoveAll();
+					m_ABCCharArray_ByConf.RemoveAll();
+
+					m_NumCharArray_ByConf.Copy( m_NumCharArray );
+					m_ABCCharArray_ByConf.Copy( ABCCharArray );
+				}
+			}
+#endif//end -- TEST_HMMCONF
 		}
 	}
 

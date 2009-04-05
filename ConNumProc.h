@@ -56,8 +56,23 @@ private:
 	ObjRectArray m_ABCCharArray_ByHMMComp;//With insertion estimation
 	ObjRectArray m_NumCharArray_ByHMMConf;//With insertion rcMis
 	ObjRectArray m_ABCCharArray_ByHMMConf;//With insertion rcMis
+	ObjRectArray m_ABCCharArray_CURByConf;
 	float m_fNumRgnHMMConf;
+	float m_fHMMConf;
 	BOOL m_bTryHMMSearchABC;
+
+	void HMMConfInit()
+	{
+		m_NumCharArray_ByHMMComp.RemoveAll();
+		m_ABCCharArray_ByHMMComp.RemoveAll();
+		m_NumCharArray_ByHMMConf.RemoveAll();
+		m_ABCCharArray_ByHMMConf.RemoveAll();
+		m_ABCCharArray_CURByConf.RemoveAll();
+
+		m_fNumRgnHMMConf = 0.0f;
+		m_fHMMConf = 0.0f;
+		m_bTryHMMSearchABC = FALSE;
+	}
 #endif
 	
 #ifdef CHECK_DOG
