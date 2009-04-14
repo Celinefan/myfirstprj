@@ -630,7 +630,7 @@ CString CConNumProc::RecNum()
 	int nThHorPosTry = 0;
 #ifdef TEST_HORALIGNxTH_ONLY
 	//	0 : For Red Chars |  1 : For 4331 Format | 2 : HorPosTry1 | 3 : HorPosTry2
-	int xTH = 1;
+	int xTH = 2;
 	nThHorPosTry = xTH;
 #endif
 
