@@ -1,5 +1,6 @@
 #include "StdAfx.h"
 #include "PlateRecFuc.h"
+#include "math.h"
 
 static int nRunLenAlloced = 0;
 
@@ -198,6 +199,110 @@ void VerEnhance(IMAGE InImg, IMAGE OutImg, int length = 9, float fRatio = 0.1f )
 				}
 				if (InImg[i][j] - itemp / length > THRESHOLD && InImg[i][j] > nMinVal )
 					OutImg[i][j] = 255;
+//				else
+// 					OutImg[i][j] = 0;
+			}
+		}
+	}
+	
+}
+
+
+void VerEnhance_ForShow(IMAGE InImg, IMAGE OutImg, int length = 9, float fRatio = 0.1f ) 
+{
+	float fShowRatio = 2.5f;//make the result visible 
+
+
+	int nMinVal = 0;
+
+	int width = ImageWidth(InImg);
+    int height = ImageHeight(InImg);
+	
+	int THRESHOLD = 10;
+	int nThreMin = 4;
+	int nThreMax = 13;
+	int itemp;
+
+	if (fRatio > 0.14f)
+	{
+		nThreMin = 4;
+		nThreMax = 13;
+#ifdef TEST_20060624
+		nThreMax = 50;
+		nMinVal = 80;
+#endif
+	}
+	else if (fRatio > 0.09)
+	{
+		nThreMin = 4;
+		nThreMax = 11;
+	}
+	else if (fRatio > 0.05) 
+	{
+		nThreMin = 3;
+		nThreMax = 9;
+	}
+	else
+	{
+		nThreMin = 4;
+		nThreMax = 9;
+	}
+	
+
+	BOOL bfirst = FALSE;
+	for (int i=0 ; i<height ; i++) // this is modify for fast
+	{
+		bfirst = TRUE;
+		itemp = 0;
+		
+		for (int j=0+length/2; j<width-length/2; j++)
+		{
+			if (bfirst)
+			{
+				for (int k=-length/2; k<=length/2; k++)
+				{
+					itemp += InImg[i][j+k];				
+				}
+				bfirst = FALSE;
+				if( fRatio>0.0 )
+				{
+					THRESHOLD = max( int((itemp/length)*fRatio) , nThreMin );
+					THRESHOLD = min( THRESHOLD , nThreMax );
+				}
+				else
+				{
+					THRESHOLD = 10;
+				}
+				
+				int nDif = (InImg[i][j] - itemp / length) * fShowRatio;
+				if( nDif < 0 ) nDif = 0;
+				if( nDif > 255 ) nDif = 255;
+				OutImg[i][j] = (unsigned char)( nDif );
+// 				if (InImg[i][j] - itemp / length > THRESHOLD && InImg[i][j] > nMinVal)
+// 					OutImg[i][j] = 255;
+//				else
+// 					OutImg[i][j] = 0;
+				
+			}
+			else
+			{
+				itemp = itemp - InImg[i][j-length/2-1] + InImg[i][j+length/2];
+				if( fRatio>0.0 )
+				{
+					THRESHOLD = max( int((itemp/length)*fRatio) , nThreMin );
+					THRESHOLD = min( THRESHOLD , nThreMax );
+				}
+				else
+				{
+					THRESHOLD = 10;
+				}
+
+				int nDif = (InImg[i][j] - itemp / length) * fShowRatio;
+				if( nDif < 0 ) nDif = 0;
+				if( nDif > 255 ) nDif = 255;
+				OutImg[i][j] = (unsigned char)( nDif );
+// 				if (InImg[i][j] - itemp / length > THRESHOLD && InImg[i][j] > nMinVal )
+// 					OutImg[i][j] = 255;
 //				else
 // 					OutImg[i][j] = 0;
 			}
@@ -457,19 +562,19 @@ void GetPerPlateRect(IMAGE InImg, CRect m_ProcessRect, ObjRectArray &m_RectArray
 	GetAllRunLengthTest(lineArray, m_RectArray);
 
 	//画扫描线
-// 	int nCnt = lineArray.GetSize();
-// 	for( int n = 0; n < nCnt; n++ )
-// 	{
-// 		int i = lineArray.GetAt(n).y;
-// 
-// 		int xStart = lineArray.GetAt(n).xStart;
-// 		int xEnd = lineArray.GetAt(n).xEnd;
-// 
-// 		for(int j = xStart; j <= xEnd; j++ )
-// 		{
-// 			InImg[i][j] = 255;
-// 		}
-// 	}
+	int nCnt = lineArray.GetSize();
+	for( int n = 0; n < nCnt; n++ )
+	{
+		int i = lineArray.GetAt(n).y;
+
+		int xStart = lineArray.GetAt(n).xStart;
+		int xEnd = lineArray.GetAt(n).xEnd;
+
+		for(int j = xStart; j <= xEnd; j++ )
+		{
+			InImg[i][j] = 255;
+		}
+	}
 
 //	memcpy( InImg[0], OutImage[0], height * width );//跳变点图像
 	//针对跳变点图画扫描线
@@ -693,6 +798,191 @@ BOOL GetPerVerPlateRect(IMAGE InImg, CRect m_ProcessRect, ObjRectArray &m_RectAr
 	delete []iArray2;
 	
 	return bNorm;
+}
+
+void GetPerPlateRect_ForShow(IMAGE InImg, CRect m_ProcessRect, ObjRectArray &m_RectArray, BOOL bEliminNoise )
+{
+//////////////////////////////////Modifiable paras For Show///////////////////////////////////////
+	int nNoiseWidth = 2;//min edge's width.
+	int nNoiseHeight = 2;//mim edge's height. ORG: MIN_CHAR_HEIGHT / 1.5f;
+	int nMaxDisX = 65;//The max distance between neighbor edges. ORG: X_DISTANCE
+	int nMinChanges = 6;//The min change points should be in a line. ORG: MIN_PIX
+////////////////////////////////////////////////////////////////////////////////////////////////
+
+	int i = 0;
+	int height = ImageHeight(InImg);
+	int width = ImageWidth(InImg);
+
+	const int  ObjColor=255;
+	const int BKColor=0;
+	
+	IMAGE OutImage = IMGALLOC_MEMCHECK(width, height);
+	int objNumber;// this possibily consider
+	int xMin, xMax, yMin, yMax;
+	PPRUNLENGTH Runlength = GETRUNLENGTH_MEMCHECK(InImg, ObjColor, objNumber, 1);
+	
+	int plateHeight;
+	int plateWidth;
+
+
+	for (i=0; i<objNumber; i++)
+	{
+		GetObjectXYLimit(Runlength[i], xMin, xMax, yMin, yMax);
+		plateHeight = yMax - yMin;
+		plateWidth = xMax - xMin;
+
+		//if (plateHeight > MAX_CHAR_HEIGHT || plateHeight <= 1)
+		if ( plateHeight > MAX_CHAR_HEIGHT )
+		{
+			ImgFillObject(InImg, Runlength[i], 0);
+			continue;
+		}
+		
+		if( bEliminNoise )
+		{
+			if ( plateHeight < nNoiseHeight || plateWidth < nNoiseWidth )
+			{
+				ImgFillObject(InImg, Runlength[i], 0);
+				continue;
+			}
+
+			if ( (float)plateWidth / (float)plateHeight > 2.0f)
+			{
+				ImgFillObject(InImg, Runlength[i], 0);
+				continue;
+ 			}
+		}
+ 	}
+
+
+	FREERUNLENGTH_MEMCHECK(objNumber, Runlength);
+	
+	int *iArray = new int[height];  // 水平投影数组
+	memset(iArray, 0, sizeof(int)*height);
+
+	int *iArray2 = new int[height];
+	memset(iArray2, 0, sizeof(int)*height);
+	
+	BOOL hasSecond = FALSE;
+	BOOL bfirstcomplite = FALSE;
+
+	CPoint *PtArray = new CPoint[height];
+	memset(PtArray, 0, sizeof(CPoint)*height);
+
+	BOOL bflag1 = FALSE;
+	BOOL bfindfirst = FALSE;
+	int xper, xcur;
+
+	typedef CArray<HORIZlINE,HORIZlINE> CHorizline;
+	HORIZlINE line;
+
+	CHorizline lineArray;
+ 
+	int linecount = 0;
+
+	BOOL btest = FALSE;
+
+	for ( i=m_ProcessRect.bottom-WIDTH_CUT_EDGE; i>=m_ProcessRect.top+WIDTH_CUT_EDGE; i--)  // this is modify for fast
+	{
+		bflag1 = FALSE;
+		bfindfirst = FALSE;
+		int xdistance;
+		for (int j=m_ProcessRect.left+WIDTH_CUT_EDGE; j<m_ProcessRect.right-WIDTH_CUT_EDGE; j++)
+		{
+			if (((!InImg[i][j]) && InImg[i][j+1]) || (InImg[i][j] && (!InImg[i][j+1])))
+				OutImage[i][j] = ObjColor;
+
+			if ((!bfindfirst) && (OutImage[i][j]))
+			{
+				bflag1 = TRUE;
+				bfindfirst = TRUE;
+				xper = j;
+				xcur = j;
+				iArray[i] = 1;
+				PtArray[i].x = j;
+				line.y = i;
+				line.xStart = j;
+			}
+			else//if( bfindfirst || (!OutImage[i][j]) )
+			{
+				if (bflag1 && (OutImage[i][j]))
+				{
+					xper = xcur;
+					xcur = j;
+					xdistance = xcur - xper;
+					
+					if ( xdistance < nMaxDisX )
+					{
+						if (xdistance <= X_MINDISTANCE )
+						{
+							;
+						}
+						else
+						{
+							iArray[i]++;
+							PtArray[i].y = j;
+							line.xEnd = j;
+						}
+					}
+					else
+					{
+						if (iArray[i] < nMinChanges)
+						{
+							iArray[i] = 0;
+							bflag1 = FALSE;
+							bfindfirst = FALSE;
+							j--;
+						}
+						else
+						{
+							line.lab = -1;
+							lineArray.Add(line);
+							bflag1 = FALSE;
+							bfindfirst = FALSE;
+							iArray[i] = 0;
+							j--;
+							continue;
+						}
+
+						
+					}
+				}
+			}
+
+			if ( (iArray[i] > nMinChanges)
+				&& j == (int)(m_ProcessRect.right-WIDTH_CUT_EDGE-1)
+				)  //如果线段有扫描线而且扫描到边上，结束
+			{
+				line.lab = -1;
+				lineArray.Add(line);
+			}
+	
+		}
+	}
+
+	GetAllRunLengthTest(lineArray, m_RectArray);
+
+	//画扫描线
+	int nCnt = lineArray.GetSize();
+	for( int n = 0; n < nCnt; n++ )
+	{
+		int i = lineArray.GetAt(n).y;
+
+		int xStart = lineArray.GetAt(n).xStart;
+		int xEnd = lineArray.GetAt(n).xEnd;
+
+		for(int j = xStart; j <= xEnd; j++ )
+		{
+			InImg[i][j] = 255;
+		}
+	}
+
+
+	IMGFREE_MEMCHECK(OutImage);
+	delete []PtArray;
+	delete []iArray;
+	delete []iArray2;
+	
 }
 
 void GetAllVerRunLengthTest(CHorizline &lineArray, ObjRectArray &RectArray)
@@ -2310,5 +2600,80 @@ BOOL ImageVerProj(IMAGE imgIn, CRect rcProc, int *pProj)
 		}
 	}
 
+	return TRUE;
+}
+
+BOOL LocalBin(IMAGE imgIn, IMAGE imgOut, CRect RPlate)
+{
+	float k = 0.2f;//the threshold para
+	int tw = 5;//templete width
+	int th = 5;//templete height
+
+	int w1 = RPlate.Width() + 1;
+	int h1 = RPlate.Height() + 1;
+
+	int w2 = ImageWidth(imgOut);
+	int h2 = ImageHeight(imgOut);
+
+	if( (h2 < h1) || (w2 < w1) )
+	{
+		return FALSE;
+	}
+
+	CRect r = RPlate;
+	IMAGE img;
+	img = IMGALLOC_MEMCHECK( w1, h1 );
+	GetImageRectPart( imgIn, img, r );
+
+	int i = 0;
+	int j = 0;
+	int y1 = th;
+	int y2 = r.Height() - th;
+	int x1 = tw;
+	int x2 = r.Width() - tw;
+	for( i = y1; i <= y2; i++ )
+	{
+		for( j = x1; j <= x2; j++ )
+		{
+			float mean = 0.0f;
+			float dev = 0.0f;
+			int ii = 0;
+			int jj = 0;
+
+			int nCnt = 0;
+			for( ii = i - th; ii <= i + th; ii++ )
+			{
+				for( jj = j - tw; jj <= j + tw; jj++ )
+				{
+					ASSERT( ii >= 0 && ii < h1 );
+					ASSERT( jj >= 0 && jj < w1 );
+					mean += img[ii][jj];
+
+					nCnt++;
+				}
+			}
+
+			mean /= nCnt;
+
+			for( ii = i - th; ii <= i + th; ii++ )
+			{
+				for( jj = j - tw; jj <= j + tw; jj++ )
+				{
+					ASSERT( ii >= 0 && ii < h1 );
+					ASSERT( jj >= 0 && jj < w1 );
+					dev += ( img[ii][jj] - mean ) * ( img[ii][jj] - mean );
+				}
+			}
+			dev = sqrt( dev ) / nCnt;
+
+			int nthre = mean + dev * k;
+
+			if( img[i][j] > nthre ) imgOut[i][j] = 255;
+			else img[i][j] = 0;
+			
+		}
+	}
+
+	IMGFREE_MEMCHECK(img);
 	return TRUE;
 }

@@ -2544,6 +2544,45 @@ BOOL CConNumProc::CutForChars( CRect rcNumRgn, IMAGE imgGrayOrg, BOOL bBlack )
 
 	int nPicWidth = ImageWidth(imgGrayOrg);
 	int nPicHeight = ImageHeight(imgGrayOrg);
+
+#ifdef SAVE_CUTCHAR_INFO//Test LocalBin
+	{
+		m_strCurDebugDir.Format( "%sCutCharsByRefBinMethod", m_strSubDebugDir );
+		CreateDirectory( m_strCurDebugDir, NULL );
+		m_strCurDebugDir += _T("\\");
+
+		CRect rcPlate = rcNumRgn;
+		rcPlate.InflateRect( 30, 30 );
+		RegulateRect( rcNumRgn, 0, 0, nPicWidth-1, nPicHeight-1 );
+
+		if( !bBlack )
+			m_strCurDebugFile.Format("%s%s_%d_ACUTPIC%s",m_strCurDebugDir,fname,m_nCurProcID*2,CString(_T(".jpg")));
+		else
+			m_strCurDebugFile.Format("%s%s_%d_ACUTPIC%s",m_strCurDebugDir,fname,m_nCurProcID*2+1,CString(_T(".jpg")));
+ 		SavePICPart( m_pImage, rcPlate, m_strCurDebugFile);
+		
+		IMAGE imgNumSeq_Gray = ImageAlloc( rcPlate.Width() + 1 , rcPlate.Height() + 1 );
+		IMAGE imgNumSeq = ImageAlloc( rcPlate.Width() + 1 , rcPlate.Height() + 1 );
+
+		GetImageRectPart( imgGrayOrg, imgNumSeq_Gray, rcPlate );
+		if( bBlack )
+		{
+			ImgReverse( imgNumSeq_Gray, imgNumSeq_Gray );
+		}
+		CRect rcTmp( 0 , 0 , rcPlate.Width() , rcPlate.Height() );
+
+		LocalBin( imgNumSeq_Gray , imgNumSeq , rcTmp );
+
+		if( !bBlack )
+			m_strCurDebugFile.Format("%s%s_%d_BIN%s",m_strCurDebugDir,fname,m_nCurProcID*2,CString(_T(".jpg")));
+		else
+			m_strCurDebugFile.Format("%s%s_%d_BIN%s",m_strCurDebugDir,fname,m_nCurProcID*2+1,CString(_T(".jpg")));
+		ImageSave( imgNumSeq, m_strCurDebugFile );
+
+		ImageFree( imgNumSeq_Gray );
+		ImageFree( imgNumSeq );
+	}
+#endif
 	
 	int tt = 0;//Try times
 	for( tt; tt < 2; tt++ )
@@ -2602,7 +2641,7 @@ BOOL CConNumProc::CutForChars( CRect rcNumRgn, IMAGE imgGrayOrg, BOOL bBlack )
 		}
 		CRect rcTmp( 0 , 0 , rcNumRgn.Width() , rcNumRgn.Height() );
 
-		switch( tt )
+		switch( tt )//Binarization
 		{
 		//case 0:
 		case 1:
@@ -9624,6 +9663,36 @@ BOOL CConNumProc::GetPrePosStrategy( IMAGE imgGray, ObjRectArray& rcArray, BOOL 
 		VerEnhance( imgGray, imgVer, 16, 0.10f );
 		break;
 	}
+
+#ifdef SAVE_PLATEPOS_INFO
+	IMAGE imgVer_ForShow = ImageAlloc( nPicWidth, nPicHeight );
+	IMAGE imgBin_ForShow = ImageAlloc( nPicWidth, nPicHeight );
+ 	m_strCurDebugFile.Format("%s%s_%d_%d%s",m_strCurDebugDir,fname,m_nCurProcID,nCurDebugID,CString(_T("VerGrayRef.jpg")));
+ 	ImageSave( imgGray, m_strCurDebugFile );
+	
+	VerEnhance_ForShow( imgGray, imgVer_ForShow, 11, 0.05f );
+
+ 	m_strCurDebugFile.Format("%s%s_%d_%d%s",m_strCurDebugDir,fname,m_nCurProcID,nCurDebugID,CString(_T("VerGray.jpg")));
+ 	ImageSave( imgVer_ForShow, m_strCurDebugFile );
+
+	CRect rcBin = CRect( 0, 0, nPicWidth - 1, nPicHeight - 1 );
+	DajinBin( imgVer_ForShow, imgBin_ForShow, rcBin, 0.0f );
+
+ 	m_strCurDebugFile.Format("%s%s_%d_%d%s",m_strCurDebugDir,fname,m_nCurProcID,nCurDebugID,CString(_T("VerBin.jpg")));
+ 	ImageSave( imgBin_ForShow, m_strCurDebugFile );
+
+	ObjRectArray rcArrayShow;
+	GetPerPlateRect_ForShow( imgBin_ForShow , rcBin , rcArrayShow, TRUE );
+
+	m_strCurDebugFile.Format("%s%s_%d_%d%s",m_strCurDebugDir,fname,m_nCurProcID,nCurDebugID,CString(_T("VerBinLine.jpg")));
+	ImageSave( imgBin_ForShow, m_strCurDebugFile );
+	DrawObjRectArray( imgBin_ForShow, rcArrayShow );
+	m_strCurDebugFile.Format("%s%s_%d_%d%s",m_strCurDebugDir,fname,m_nCurProcID,nCurDebugID,CString(_T("VerBinPos.jpg")));
+	ImageSave( imgBin_ForShow, m_strCurDebugFile );
+
+	ImageFree( imgVer_ForShow );
+	ImageFree( imgBin_ForShow );
+#endif
 		
 
 #ifdef SAVE_PLATEPOS_INFO//Save VerEnhanced Image
@@ -9660,8 +9729,8 @@ BOOL CConNumProc::GetPrePosStrategy( IMAGE imgGray, ObjRectArray& rcArray, BOOL 
 	m_strCurDebugDir = m_strSubDebugDir + "VerEnhance";
 	CreateDirectory( m_strCurDebugDir, NULL );
 	m_strCurDebugDir += _T("\\");
-// 	m_strCurDebugFile.Format("%s%s_%d_%d%s",m_strCurDebugDir,fname,m_nCurProcID,nCurDebugID,CString(_T("line.jpg")));
-// 	ImageSave( imgVer, m_strCurDebugFile );
+	m_strCurDebugFile.Format("%s%s_%d_%d%s",m_strCurDebugDir,fname,m_nCurProcID,nCurDebugID,CString(_T("line.jpg")));
+	ImageSave( imgVer, m_strCurDebugFile );
 	DrawObjRectArray( imgVer, rcArray );
 	m_strCurDebugFile.Format("%s%s_%d_%d%s",m_strCurDebugDir,fname,m_nCurProcID,nCurDebugID,CString(_T("_platepos.jpg")));
 	ImageSave( imgVer, m_strCurDebugFile );

@@ -88,4 +88,7 @@ BOOL GetRcDisForTopView( ObjRectArray &charArray, int &nRcDis );
 BOOL ImageVerProj(IMAGE imgIn, CRect rcProc, int *pProj);
 
 
+void VerEnhance_ForShow(IMAGE InImg, IMAGE OutImg, int length, float fRatio );
+void GetPerPlateRect_ForShow(IMAGE InImg, CRect m_ProcessRect, ObjRectArray &m_RectArray, BOOL bEliminNoise );
+BOOL LocalBin(IMAGE imgIn, IMAGE imgOut, CRect RPlate);
 #endif // !defined(SCU_III_IMGFUC_INCLUDED_)
