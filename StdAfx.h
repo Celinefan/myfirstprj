@@ -28,11 +28,11 @@
 
 
 //#define TIME_LIMITED
-//#define TEST_4331_FORMAT
+#define TEST_4331_FORMAT
 #define TEST_VER_FORMAT2
 #define TEST_CUT_CONF
 #define TEST_CUT_CONF_V2
-#define TEST_PROJ
+//#define TEST_PROJ
 //#define TEST_CUT_CONF_V3
 
 #define TEST_HMM//ADDED 20081119 -- FOR HMM CHAR CUT CONF ANA
