@@ -1448,6 +1448,44 @@ void TransferRcArrayFromL2W( ObjRectArray& rcArray, CRect rcLocal)//Transfer RcA
 	}
 }
 
+void TransferRectFromW2L( CRect& rc, CRect rcLocal )
+{
+	int l = rcLocal.left;
+	int t = rcLocal.top;
+
+	rc.left -= l;
+	rc.right -= l;
+	rc.top -= t;
+	rc.bottom -= t;
+}
+
+BOOL TransferRcArrayFromW2L( ObjRectArray& rcArray, CRect rcLocal)//Transfer RcArray from Local to Whole
+{
+	BOOL bSuc = TRUE;
+	int l = rcLocal.left;
+	int t = rcLocal.top;
+
+	int nCnt = rcArray.GetSize();
+	for( int i = 0; i < nCnt; i++ )
+	{
+		CRect rcCur = rcArray.GetAt(i);
+		if( rcLocal.PtInRect( rcCur.TopLeft() ) && rcLocal.PtInRect( rcCur.BottomRight() ) )
+		{
+			TransferRectFromW2L( rcCur, rcLocal );
+			rcArray.SetAt(i,rcCur);
+		}
+		else
+		{
+			//rcArray.SetAt( i, CRect(0,0,0,0) );
+			bSuc = FALSE;
+		}
+	}
+
+	return bSuc;
+}
+
+
+
 BOOL WriteRect2Txt( fstream &fInfo, CRect rcCur )
 {
 	BOOL bSuc = TRUE;
