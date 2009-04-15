@@ -2605,7 +2605,7 @@ BOOL ImageVerProj(IMAGE imgIn, CRect rcProc, int *pProj)
 
 BOOL LocalBin(IMAGE imgIn, IMAGE imgOut, CRect RPlate)
 {
-	float k = 0.2f;//the threshold para
+	float k = 0.1f;//the threshold para
 	int tw = 5;//templete width
 	int th = 5;//templete height
 
@@ -2661,17 +2661,126 @@ BOOL LocalBin(IMAGE imgIn, IMAGE imgOut, CRect RPlate)
 				{
 					ASSERT( ii >= 0 && ii < h1 );
 					ASSERT( jj >= 0 && jj < w1 );
-					dev += ( img[ii][jj] - mean ) * ( img[ii][jj] - mean );
+					//dev += ( img[ii][jj] - mean ) * ( img[ii][jj] - mean );
+					dev += fabs( img[ii][jj] - mean );
 				}
 			}
-			dev = sqrt( dev ) / nCnt;
+			//dev = sqrt( dev ) / nCnt;
+			dev = dev / nCnt;
 
-			int nthre = mean + dev * k;
+			//int nthre = mean + dev * k;
+			int nthre = mean * ( 1.0 + k );
+			if( nthre > 255 ) nthre = 245;
 
 			if( img[i][j] > nthre ) imgOut[i][j] = 255;
-			else img[i][j] = 0;
+			else imgOut[i][j] = 0;
 			
 		}
+	}
+
+	IMGFREE_MEMCHECK(img);
+	return TRUE;
+}
+
+BOOL LocalBin_ThreForBlock(IMAGE imgIn, IMAGE imgOut, CRect RPlate)
+{
+	float k_d = 1.0f;//the threshold ratio for dev
+	float k_m = 0.1f;//the threshold ratio for mean
+	int tw = 10;//templete width
+	int th = 10;//templete height
+
+	int w1 = RPlate.Width() + 1;
+	int h1 = RPlate.Height() + 1;
+
+	int w2 = ImageWidth(imgOut);
+	int h2 = ImageHeight(imgOut);
+
+	if( (h2 < h1) || (w2 < w1) )
+	{
+		return FALSE;
+	}
+
+	CRect r = RPlate;
+	IMAGE img;
+	img = IMGALLOC_MEMCHECK( w1, h1 );
+	GetImageRectPart( imgIn, img, r );
+
+	int i = 0;
+	int j = 0;
+	int y1 = th;
+	int y2 = r.Height() - th;
+	int x1 = tw;
+	int x2 = r.Width() - tw;
+	i = y1;
+	j = x1;
+
+	while( i + th < h1 )
+	{
+		j = x1;
+		while( j + tw < w1 )
+		{
+			float mean = 0.0f;
+			float dev = 0.0f;
+			int ii = 0;
+			int jj = 0;
+
+			int nCnt = 0;
+			for( ii = i - th; ii <= i + th; ii++ )
+			{
+				for( jj = j - tw; jj <= j + tw; jj++ )
+				{
+					ASSERT( ii >= 0 && ii < h1 );
+					ASSERT( jj >= 0 && jj < w1 );
+					mean += img[ii][jj];
+
+					nCnt++;
+				}
+			}
+
+			mean /= nCnt;
+
+			for( ii = i - th; ii <= i + th; ii++ )
+			{
+				for( jj = j - tw; jj <= j + tw; jj++ )
+				{
+					ASSERT( ii >= 0 && ii < h1 );
+					ASSERT( jj >= 0 && jj < w1 );
+					//dev += ( img[ii][jj] - mean ) * ( img[ii][jj] - mean );
+					dev += fabs( img[ii][jj] - mean );
+				}
+			}
+			//dev = sqrt( dev ) / nCnt;
+			dev = dev / nCnt;
+
+			//int nthre = mean + dev * k;
+			//int nthre = mean * ( 1.0 + k );
+			int nthre = 0.0f;
+			if( dev < mean * 0.1 )
+			{
+				nthre = mean + mean * k_m;				
+			}
+			else
+			{
+				nthre = mean + dev * k_d;
+			}
+			
+			if( nthre > 255 ) nthre = 245;
+
+
+			for( ii = i - th; ii <= i + th; ii++ )
+			{
+				for( jj = j - tw; jj <= j + tw; jj++ )
+				{
+					ASSERT( ii >= 0 && ii < h1 );
+					ASSERT( jj >= 0 && jj < w1 );
+
+					if( img[ii][jj] > nthre ) imgOut[ii][jj] = 255;
+					else imgOut[ii][jj] = 0;
+				}
+			}
+			j = j + tw * 2;
+		}
+		i = i + th * 2;
 	}
 
 	IMGFREE_MEMCHECK(img);

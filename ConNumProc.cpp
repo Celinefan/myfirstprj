@@ -2552,7 +2552,7 @@ BOOL CConNumProc::CutForChars( CRect rcNumRgn, IMAGE imgGrayOrg, BOOL bBlack )
 		m_strCurDebugDir += _T("\\");
 
 		CRect rcPlate = rcNumRgn;
-		rcPlate.InflateRect( 30, 30 );
+		rcPlate.InflateRect( 40, 40 );
 		RegulateRect( rcNumRgn, 0, 0, nPicWidth-1, nPicHeight-1 );
 
 		if( !bBlack )
@@ -2572,6 +2572,7 @@ BOOL CConNumProc::CutForChars( CRect rcNumRgn, IMAGE imgGrayOrg, BOOL bBlack )
 		CRect rcTmp( 0 , 0 , rcPlate.Width() , rcPlate.Height() );
 
 		LocalBin( imgNumSeq_Gray , imgNumSeq , rcTmp );
+		//LocalBin_ThreForBlock( imgNumSeq_Gray , imgNumSeq , rcTmp );
 
 		if( !bBlack )
 			m_strCurDebugFile.Format("%s%s_%d_BIN%s",m_strCurDebugDir,fname,m_nCurProcID*2,CString(_T(".jpg")));
