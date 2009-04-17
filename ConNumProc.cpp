@@ -2552,8 +2552,8 @@ BOOL CConNumProc::CutForChars( CRect rcNumRgn, IMAGE imgGrayOrg, BOOL bBlack )
 		m_strCurDebugDir += _T("\\");
 
 		CRect rcPlate = rcNumRgn;
-		rcPlate.InflateRect( 40, 40 );
-		RegulateRect( rcNumRgn, 0, 0, nPicWidth-1, nPicHeight-1 );
+		rcPlate.InflateRect( 10, 10 );
+		RegulateRect( rcPlate, 0, 0, nPicWidth-1, nPicHeight-1 );
 
 		if( !bBlack )
 			m_strCurDebugFile.Format("%s%s_%d_ACUTPIC%s",m_strCurDebugDir,fname,m_nCurProcID*2,CString(_T(".jpg")));
@@ -2571,8 +2571,17 @@ BOOL CConNumProc::CutForChars( CRect rcNumRgn, IMAGE imgGrayOrg, BOOL bBlack )
 		}
 		CRect rcTmp( 0 , 0 , rcPlate.Width() , rcPlate.Height() );
 
-		LocalBin( imgNumSeq_Gray , imgNumSeq , rcTmp );
+		if( !bBlack )
+			m_strCurDebugFile.Format("%s%s_%d_GRAY%s",m_strCurDebugDir,fname,m_nCurProcID*2,CString(_T(".jpg")));
+		else
+			m_strCurDebugFile.Format("%s%s_%d_GRAY%s",m_strCurDebugDir,fname,m_nCurProcID*2+1,CString(_T(".jpg")));
+		ImageSave( imgNumSeq_Gray, m_strCurDebugFile );
+
+		//LocalBin( imgNumSeq_Gray , imgNumSeq , rcTmp );
 		//LocalBin_ThreForBlock( imgNumSeq_Gray , imgNumSeq , rcTmp );
+		ImgReverse( imgNumSeq_Gray, imgNumSeq_Gray );
+		LLTFast(imgNumSeq_Gray, imgNumSeq, 4 , 8);
+		ImgReverse( imgNumSeq_Gray, imgNumSeq_Gray );
 
 		if( !bBlack )
 			m_strCurDebugFile.Format("%s%s_%d_BIN%s",m_strCurDebugDir,fname,m_nCurProcID*2,CString(_T(".jpg")));
@@ -2642,6 +2651,14 @@ BOOL CConNumProc::CutForChars( CRect rcNumRgn, IMAGE imgGrayOrg, BOOL bBlack )
 		}
 		CRect rcTmp( 0 , 0 , rcNumRgn.Width() , rcNumRgn.Height() );
 
+#ifdef SAVE_CUTCHAR_INFO
+		if( !bBlack )
+			m_strCurDebugFile.Format("%s%s_%d_GRAY%s",m_strCurDebugDir,fname,m_nCurProcID*2,CString(_T(".jpg")));
+		else
+			m_strCurDebugFile.Format("%s%s_%d_GRAY%s",m_strCurDebugDir,fname,m_nCurProcID*2+1,CString(_T(".jpg")));
+		ImageSave( imgNumSeq_Gray, m_strCurDebugFile );
+#endif
+
 		switch( tt )//Binarization
 		{
 		//case 0:
@@ -2655,6 +2672,14 @@ BOOL CConNumProc::CutForChars( CRect rcNumRgn, IMAGE imgGrayOrg, BOOL bBlack )
 			ImgReverse( imgNumSeq_Gray, imgNumSeq_Gray );
 			break;
 		}
+
+#ifdef SAVE_CUTCHAR_INFO
+		if( !bBlack )
+			m_strCurDebugFile.Format("%s%s_%d_Bin%s",m_strCurDebugDir,fname,m_nCurProcID*2,CString(_T(".jpg")));
+		else
+			m_strCurDebugFile.Format("%s%s_%d_Bin%s",m_strCurDebugDir,fname,m_nCurProcID*2+1,CString(_T(".jpg")));
+		ImageSave( imgNumSeq, m_strCurDebugFile );
+#endif
 		
 		int nType = -1;
 		ObjRectArray charArray;
@@ -10708,6 +10733,9 @@ BOOL CConNumProc::GetHMMConf( ObjRectArray& allobjs, float &fHMMConf )
 		{
 			fRatio[i * nFealen + j] = 0.2;
 		}
+		fRatio[ i * nFealen ] = 0.4;
+		fRatio[ i * nFealen + 1 ] = 0.2;
+		fRatio[ i * nFealen + 2 ] = 0.35;
 		fRatio[ i * nFealen + nFealen - 1 ] = 1;
 	}
 
